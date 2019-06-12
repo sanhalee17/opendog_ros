@@ -260,12 +260,12 @@ class ODriveNode(object):
         # from here, any errors return to get out
         if self.fast_timer_comms_active and not self.command_queue.empty():
             # check to see if we're initialised and engaged motor
-            try:
-                if not self.driver.ensure_prerolled():
-                    return
-            except:
-                rospy.logerr("Fast timer exception on preroll." + traceback.format_exc())
-                self.fast_timer_comms_active = False                
+            # try:
+            #     if not self.driver.ensure_prerolled():
+            #         return
+            # except:
+            #     rospy.logerr("Fast timer exception on preroll." + traceback.format_exc())
+            #     self.fast_timer_comms_active = False                
             try:
                 motor_command = self.command_queue.get_nowait()
             except Queue.Empty:
@@ -279,6 +279,7 @@ class ODriveNode(object):
                         
                     left_linear_val, right_linear_val = motor_command[1]
                     self.driver.drive(left_linear_val, right_linear_val)
+                    print("attempted to write to Odrive")
                     self.last_speed = max(abs(left_linear_val), abs(right_linear_val))
                     self.last_cmd_vel_time = time_now
                 except:
@@ -396,7 +397,10 @@ class ODriveNode(object):
         #angular_to_linear = msg.angular.z * (wheel_track/2.0) 
         #left_linear_rpm  = (msg.linear.x - angular_to_linear) * m_s_to_erpm
         #right_linear_rpm = (msg.linear.x + angular_to_linear) * m_s_to_erpm
-        left_linear_val, right_linear_val = self.convert(msg.linear.x, msg.angular.z)
+        #AAB CHANGED JUNE 11:
+        # left_linear_val, right_linear_val = self.convert(msg.linear.x, msg.angular.z)
+        left_linear_val, right_linear_val = msg.linear.x, msg.angular.z
+        print (left_linear_val,right_linear_val)
         
         # if wheel speed = 0, stop publishing after sending 0 once. #TODO add error term, work out why VESC turns on for 0 rpm
         
