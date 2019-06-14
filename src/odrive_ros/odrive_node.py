@@ -7,6 +7,8 @@ import tf.transformations
 import tf_conversions
 import tf2_ros
 
+# Edit by GGC on June 14: 
+# Imports message types and services from several libraries
 from std_msgs.msg import Float64, Int32
 from geometry_msgs.msg import Twist, TransformStamped
 from nav_msgs.msg import Odometry
@@ -17,6 +19,9 @@ import math
 import traceback
 import Queue
 
+# Edit by GGC on June 14: 
+# From odrive_interface.py, imports 2 classes
+# Note: ODriveFailure only contains "pass"
 from odrive_interface import ODriveInterfaceAPI, ODriveFailure
 
 class ROSLogger(object):
@@ -48,7 +53,7 @@ class ROSLogger(object):
 class ODriveNode(object):
     last_speed = 0.0
     driver = None
-    prerolling = False
+    prerolling = False   # Edit by GGC on June 14: Not used anywhere
     
     # Robot wheel_track params for velocity -> motor speed conversion
     wheel_track = None
@@ -69,7 +74,7 @@ class ODriveNode(object):
         self.wheel_track = float(rospy.get_param('~wheel_track', 0.285)) # m, distance between wheel centres
         self.tyre_circumference = float(rospy.get_param('~tyre_circumference', 0.341)) # used to translate velocity commands in m/s into motor rpm
         
-        self.connect_on_startup   = rospy.get_param('~connect_on_startup', False)
+        self.connect_on_startup   = rospy.get_param('~connect_on_startup', False)  # Edit by GGC on June 14: Does not automatically connect
         #self.calibrate_on_startup = rospy.get_param('~calibrate_on_startup', False)
         #self.engage_on_startup    = rospy.get_param('~engage_on_startup', False)
         
@@ -130,7 +135,7 @@ class ODriveNode(object):
             self.odom_msg.pose.pose.orientation.x = 0.0 # always vertical
             self.odom_msg.pose.pose.orientation.y = 0.0 # always vertical
             self.odom_msg.pose.pose.orientation.z = 0.0
-            self.odom_msg.pose.pose.orientation.w = 1.0
+            self.odom_msg.pose.pose.orientation.w = 1.0  # Edit by GGC on June 14: What is w???
             self.odom_msg.twist.twist.linear.x = 0.0
             self.odom_msg.twist.twist.linear.y = 0.0  # no sideways
             self.odom_msg.twist.twist.linear.z = 0.0  # or upwards... only forward
@@ -299,6 +304,16 @@ class ODriveNode(object):
     
     # ROS services
     def connect_driver(self, request):
+        # Edit by GGC on June 14: 
+        # Checks if driver is connected.  If it is, returns False and says so
+        # Initializes driver log
+        # Calls connect() function and passes it what right_axis is
+        # If it fails to connect, sets driver to None again and returns False
+        # Calculates conversion from m/s input to count value
+        # Initializes positions of left and right axes (motors)
+        # Starts Fast Timer Communications
+        # If all goes well, returns True and reports that the ODrive connected
+
         if self.driver:
             return (False, "Already connected.")
         
@@ -323,6 +338,13 @@ class ODriveNode(object):
         return (True, "ODrive connected successfully")
     
     def disconnect_driver(self, request):
+        # Edit by GGC on June 14: 
+        # Checks if driver is connected. If not, throws error.
+        # Tries to call disconnect() function.  If it fails, returns False and error message
+        # If that fails, throw error
+        # Successful or not, sets driver to None
+        # If it was successful, returns True
+
         if not self.driver:
             rospy.logerr("Not connected.")
             return (False, "Not connected.")
@@ -336,6 +358,15 @@ class ODriveNode(object):
         return (True, "Disconnection success.")
     
     def calibrate_motor(self, request):
+        # Edit by GGC on June 14: 
+        # Checks if driver is connected. If not, throws error.
+        # If using preroll (has_preroll = True), then call preroll() function
+            # This will run AXIS_STATE_ENCODER_INDEX_SEARCH
+            # If this fails, returns False and error message
+        # Otherwise, calls calibrate() function to run AXIS_STATE_FULL_CALIBRATION_SEQUENCE
+            # If this fails, returns False and error message
+        # If successful, returns True and success message
+
         if not self.driver:
             rospy.logerr("Not connected.")
             return (False, "Not connected.")
@@ -350,6 +381,12 @@ class ODriveNode(object):
         return (True, "Calibration success.")
                     
     def engage_motor(self, request):
+        # Edit by GGC on June 14: 
+        # Checks if driver is connected. If not, throws error.
+        # Calls engage() function to execute AXIS_STATE_CLOSED_LOOP_CONTROL and CTRL_MODE_VELOCITY_CONTROL
+            # If this fails, returns False and error message
+        # If successful, returns True and success message
+
         if not self.driver:
             rospy.logerr("Not connected.")
             return (False, "Not connected.")
@@ -358,6 +395,12 @@ class ODriveNode(object):
         return (True, "Engage motor success.")
     
     def release_motor(self, request):
+        # Edit by GGC on June 14: 
+        # Checks if driver is connected. If not, throws error.
+        # Calls release() function to execute AXIS_STATE_IDLE
+            # If this fails, returns False and error message
+        # If successful, returns True and success message
+
         if not self.driver:
             rospy.logerr("Not connected.")
             return (False, "Not connected.")
@@ -397,10 +440,11 @@ class ODriveNode(object):
         #angular_to_linear = msg.angular.z * (wheel_track/2.0) 
         #left_linear_rpm  = (msg.linear.x - angular_to_linear) * m_s_to_erpm
         #right_linear_rpm = (msg.linear.x + angular_to_linear) * m_s_to_erpm
+
         #AAB CHANGED JUNE 11:
         # left_linear_val, right_linear_val = self.convert(msg.linear.x, msg.angular.z)
-        left_linear_val, right_linear_val = msg.linear.x, msg.angular.z
-        print (left_linear_val,right_linear_val)
+        left_linear_val, right_linear_val = msg.linear.x*10000, msg.angular.z*10000
+        # print (left_linear_val,right_linear_val)
         
         # if wheel speed = 0, stop publishing after sending 0 once. #TODO add error term, work out why VESC turns on for 0 rpm
         
@@ -435,6 +479,12 @@ class ODriveNode(object):
             self.right_current_accumulator = 0.0
 
     def publish_odometry(self, time_now):
+        # Edit by GGC on June 14: 
+        # This is where all the math happens!
+        # Calculates things like position, speed, etc.
+        # Specific to neomanic's wheeled robot right now
+        # For us, this is where our inverse kinematics would go (unless we make separate nodes)
+        
         now = time_now
         self.odom_msg.header.stamp = now
         self.tf_msg.header.stamp = now

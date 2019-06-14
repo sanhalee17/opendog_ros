@@ -25,21 +25,38 @@ class ODriveFailure(Exception):
 
 class ODriveInterfaceAPI(object):
     driver = None
-    encoder_cpr = 4096
+    # encoder_cpr = 4096
+    encoder_cpr = 8192   # Edit by GGC on June 14
     right_axis = None
     left_axis = None
     connected = False
+    # Edit by GGC on June 13
     _preroll_started = False
     _preroll_completed = False
+    # _preroll_started = True
+    # _preroll_completed = True
     #engaged = False
     
     def __init__(self, logger=None):
+        # Edit by GGC on June 14: 
+        # Initializes log
         self.logger = logger if logger else default_logger
                 
     def __del__(self):
+        # Edit by GGC on June 14: 
+        # Deletes by disconnecting
         self.disconnect()
                     
     def connect(self, port=None, right_axis=0, timeout=30):
+        # Edit by GGC on June 14: 
+        # Checks if driver is connected. If it is, reports that it's reconnecting.
+        # Tries to find an ODrive to connect to with find_any within timeout time (seconds???)
+        # Assigns motors to axes array (I think...)
+        # If fails, logs error and returns False
+        # Sets encoder counts/revolution based on info from ODrive and encoder
+        # Sets connected to True, and logs some info about the ODrive
+        # Sets preroll info to False...
+
         if self.driver:
             self.logger.info("Already connected. Disconnecting and reconnecting.")
         try:
@@ -68,13 +85,23 @@ class ODriveInterfaceAPI(object):
                         self.driver.fw_version_major, self.driver.fw_version_minor, self.driver.fw_version_revision,
                         "-dev" if self.driver.fw_version_unreleased else ""
                         ))
-                        
+        
+        # Edit by GGC on June 13               
         self._preroll_started = False
         self._preroll_completed = False
+        # self._preroll_started = True
+        # self._preroll_completed = True
         
         return True
         
     def disconnect(self):
+        # Edit by GGC on June 14: 
+        # Checks if driver is connected. If not, throws error.
+        # Clears the values of connected, right_axis, and left_axis
+        # Tries to release motors (see release function)
+        # If it fails, logs error and returns false
+        # Successful or not, will disconnect ODrive with "driver = None"  *******Check if this is true
+
         self.connected = False
         self.right_axis = None
         self.left_axis = None
@@ -95,6 +122,12 @@ class ODriveInterfaceAPI(object):
         return True
         
     def reboot(self):
+        # Edit by GGC on June 14: 
+        # Checks if driver is connected. If not, throws error.
+        # Tries to reboot using <odrv>.reboot()
+        # If it fails, logs error and returns false
+        # Successful or not, will disconnect ODrive with "driver = None"  *******Check if this is true
+
         if not self.driver:
             self.logger.error("Not connected.")
             return False
@@ -109,6 +142,12 @@ class ODriveInterfaceAPI(object):
         return True
         
     def calibrate(self):
+        # Edit by GGC on June 14: 
+        # Checks if driver is connected. If not, throws error.
+        # Calibrates each axis (motor) with AXIS_STATE_FULL_CALIBRATION_SEQUENCE
+        # Pauses to make sure sequence is done (waits until it is in IDLE)
+        # If there is an error, it is reported and returns False (success status)
+
         if not self.driver:
             self.logger.error("Not connected.")
             return False
@@ -128,18 +167,33 @@ class ODriveInterfaceAPI(object):
         return True
         
     def preroll(self, wait=True):
+        # Edit by GGC on June 14: 
+        # Checks if driver is connected. If not, throws error.
+        # Checks if preroll was started. If so, returns False.
+        # For each axis (motor), calibrates encoder using AXIS_STATE_ENCODER_INDEX_SEARCH
+        # Sets _preroll_started to True
+        # Waits until both axes's encoders have finished index search by checking it is idling
+        # If there is an error for one of the axes, logs it
+        # Sets _preroll_completed to True
+        # If wait = False, returns False
+
         if not self.driver:
             self.logger.error("Not connected.")
             return False
             
         if self._preroll_started: # must be prerolling or already prerolled
+            self.logger.error("Already prerolling")  # Edit by GGC on June 14: print to find where it's failing
             return False
             
         #self.logger.info("Vbus %.2fV" % self.driver.vbus_voltage)
 
-        for i, axis in enumerate(self.axes):
-            self.logger.info("Index search preroll axis %d..." % i)
-            axis.requested_state = AXIS_STATE_ENCODER_INDEX_SEARCH
+        # Edit by GGC on June 14: 
+        # Only look at axis0 (right motor) since we are working with one motor
+        # for i, axis in enumerate(self.axes):
+        #     self.logger.info("Index search preroll axis %d..." % i)
+        #     axis.requested_state = AXIS_STATE_ENCODER_INDEX_SEARCH
+        self.logger.info("Index search preroll axis %d..." % 0)
+        self.axes[0].requested_state = AXIS_STATE_ENCODER_INDEX_SEARCH
             
         self._preroll_started = True
         
@@ -153,7 +207,10 @@ class ODriveInterfaceAPI(object):
                     return False
             self._preroll_completed = True
         else:
+            self.logger.error("Wait was false")  # Edit by GGC on June 14: print to find where it's failing
             return False
+
+        return True  # Edit by GGC on June 14: this function was never told to be true if it was successful!
         
     # def prerolling(self):
     #     return self.axes[0].current_state == AXIS_STATE_ENCODER_INDEX_SEARCH or self.axes[1].current_state == AXIS_STATE_ENCODER_INDEX_SEARCH
@@ -162,6 +219,14 @@ class ODriveInterfaceAPI(object):
     #     return self._prerolled and not self.prerolling()
         
     def ensure_prerolled(self):
+        # Edit by GGC on June 14: 
+        # Checks if preroll was completed. If so, returns True
+        # If it started but did not complete, checks if it is still index searching
+            # If not, checks if there are errors for each axis (motor). If there are errors, logs it and attempts to reboot
+            # If there are no errors, it was successful, so set _preroll_completed to True
+        # If it is still index searching, the motor is still prerolling, so return False
+        # If neither _preroll_started nor _preroll_completed are True, call preroll function and return False
+
         # preroll success
         if self._preroll_completed:
             return True
@@ -189,12 +254,21 @@ class ODriveInterfaceAPI(object):
             return False
     
     def engaged(self):
+        # Edit by GGC on June 14: 
+        # Checks if both axes (motors) are engaged with AXIS_STATE_CLOSED_LOOP_CONTROL
         return self.axes[0].current_state == AXIS_STATE_CLOSED_LOOP_CONTROL or self.axes[1].current_state == AXIS_STATE_CLOSED_LOOP_CONTROL
     
     def idle(self):
+        # Edit by GGC on June 14: 
+        # Checks if both axes (motors) are released/idled with AXIS_STATE_IDLE
         return self.axes[0].current_state == AXIS_STATE_IDLE and self.axes[1].current_state == AXIS_STATE_IDLE
         
     def engage(self):
+        # Edit by GGC on June 14: 
+        # Checks if driver is connected. If not, throws error.
+        # Engages motors with AXIS_STATE_CLOSED_LOOP_CONTROL.
+        # Then enters velocity mode with CTRL_MODE_VELOCITY_CONTROL
+
         if not self.driver:
             self.logger.error("Not connected.")
             return False
@@ -209,6 +283,10 @@ class ODriveInterfaceAPI(object):
         return True
         
     def release(self):
+        # Edit by GGC on June 14: 
+        # Checks if driver is connected. If not, throws error.
+        # Executes AXIS_STATE_IDLE on each available axis (motor) to disengage them
+
         if not self.driver:
             self.logger.error("Not connected.")
             return False
@@ -220,6 +298,11 @@ class ODriveInterfaceAPI(object):
         return True
     
     def drive(self, left_motor_val, right_motor_val):
+        # Edit by GGC on June 14: 
+        # Checks if driver is connected. If not, throws error.
+        # Executes axis.controller.vel_setpoint for each axis (motor) to make them move!
+        # For wheeled bot, one motor must spin the opposite direction as the other to go straight
+
         if not self.driver:
             self.logger.error("Not connected.")
             return
@@ -230,6 +313,11 @@ class ODriveInterfaceAPI(object):
         #    raise ODriveFailure(str(e))
         
     def get_errors(self, clear=True):
+        # Edit by GGC on June 14: 
+        # Checks if driver is connected. If not, returns "none".
+        # Checks if there are errors.  
+        # If clear is True, sets all errors to 0. If axis_error is true, returns "error"
+
         # TODO: add error parsing, see: https://github.com/madcowswe/ODrive/blob/master/tools/odrive/utils.py#L34
         if not self.driver:
             return None
