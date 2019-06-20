@@ -88,7 +88,7 @@ class ODriveNode(object):
         self.odom_topic      = rospy.get_param('~odom_topic', "odom")
         self.odom_frame      = rospy.get_param('~odom_frame', "odom")
         self.base_frame      = rospy.get_param('~base_frame', "base_link")
-        self.odom_calc_hz    = rospy.get_param('~odom_calc_hz', 25)
+        self.odom_calc_hz    = rospy.get_param('~odom_calc_hz', 100)  # Edit by GGC on June 20
         
         rospy.on_shutdown(self.terminate)
 
