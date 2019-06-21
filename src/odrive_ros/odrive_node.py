@@ -61,7 +61,8 @@ class ODriveNode(object):
     encoder_counts_per_rev = None
     m_s_to_value = 1.0
     axis_for_right = 0
-    encoder_cpr = 4096
+    #encoder_cpr = 4096   # Edit by GGC on June 21: assigned in fast_timer() as value from odrive_interface?
+    encoder_cpr = 8192
     
     # Startup parameters
     connect_on_startup = False
@@ -443,9 +444,13 @@ class ODriveNode(object):
 
         #AAB CHANGED JUNE 11:
         # left_linear_val, right_linear_val = self.convert(msg.linear.x, msg.angular.z)
-        left_linear_val, right_linear_val = msg.linear.x*10000, msg.angular.z*10000
+        #left_linear_val, right_linear_val = msg.linear.x*10000, msg.angular.z*10000
         # print (left_linear_val,right_linear_val)
         
+        # Editted by GGC on June 21:
+        rad_to_count = self.encoder_cpr / (2 * math.pi)
+        left_linear_val, right_linear_val = msg.linear.x*rad_to_count, msg.angular.z*rad_to_count
+
         # if wheel speed = 0, stop publishing after sending 0 once. #TODO add error term, work out why VESC turns on for 0 rpm
         
         # Then set your wheel speeds (using wheel_left and wheel_right as examples)
