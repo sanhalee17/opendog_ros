@@ -115,7 +115,9 @@ class ODriveNode(object):
         
         if self.publish_raw_odom:
             self.raw_odom_publisher_encoder_left  = rospy.Publisher('odrive/raw_odom/encoder_left',   Int32, queue_size=2) if self.publish_raw_odom else None
-            self.raw_odom_publisher_encoder_right = rospy.Publisher('odrive/raw_odom/encoder_right',  Int32, queue_size=2) if self.publish_raw_odom else None
+            # Temporary Edit by GGC on June 25: commented this so I could test pos_control with rostopic pub
+            # REMEMBER TO UNCOMMENT THIS WHEN WE USE THE MOTOR!
+            # self.raw_odom_publisher_encoder_right = rospy.Publisher('odrive/raw_odom/encoder_right',  Int32, queue_size=2) if self.publish_raw_odom else None
             self.raw_odom_publisher_vel_left      = rospy.Publisher('odrive/raw_odom/velocity_left',  Int32, queue_size=2) if self.publish_raw_odom else None
             self.raw_odom_publisher_vel_right     = rospy.Publisher('odrive/raw_odom/velocity_right', Int32, queue_size=2) if self.publish_raw_odom else None
                             
@@ -576,7 +578,9 @@ class ODriveNode(object):
         
         if self.publish_raw_odom:
             self.raw_odom_publisher_encoder_left.publish(self.new_pos_l)
-            self.raw_odom_publisher_encoder_right.publish(self.new_pos_r)
+            # Temporary Edit by GGC on June 25: commented this so I could test pos_control with rostopic pub
+            # REMEMBER TO UNCOMMENT THIS WHEN WE USE THE MOTOR!
+            # self.raw_odom_publisher_encoder_right.publish(self.new_pos_r)    
             self.raw_odom_publisher_vel_left.publish(self.vel_l)
             self.raw_odom_publisher_vel_right.publish(self.vel_r)
         

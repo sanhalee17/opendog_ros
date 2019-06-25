@@ -10,6 +10,7 @@ roslib.load_manifest('odrive_ros')
 from std_msgs.msg import String
 from std_msgs.msg import Float32  # std_msgs don't have stamped? http://answers.ros.org/question/9715/stamped-std_msgs/
 from std_msgs.msg import Int32
+from geometry_msgs.msg import Twist
 
 #import any relevant python packages for you (numpy, opencv, etc.)
 import numpy as np
@@ -32,22 +33,22 @@ class pos_control:
 		self.des_pos = None
 		self.act_pos = None
 		self.k = 0.5  # damping
-		self.deg_to_rad = (2 * np.pi) / 180
-		self.rad_to_deg = 180 / (2* np.pi)
+		self.deg_to_rad = np.pi / 180
+		self.rad_to_deg = 180 / np.pi
 		self.count_to_rad = (2 * np.pi) / 8192
 		self.rad_to_count = 8192 / (2 * np.pi)
 		
 		#now set up your publisher
 		#this publisher will publish on a timer.
-		self.pub = rospy.Publisher("/cmd_vel",Float32,queue_size=1)
+		self.pub = rospy.Publisher("/cmd_vel", Twist, queue_size=1)
 
 		#now set up a timed loop
-		rospy.Timer(rospy.Duration(0.01),self.timercallback,oneshot=False)
+		rospy.Timer(rospy.Duration(0.01), self.timercallback, oneshot=False)
 
 
 	def des_callback(self,data):
 		#right now, this time is LOCAL. I can't access it from another function in the class.
-		time_this_happened = data.header.stamp
+		#time_this_happened = data.header.stamp
 		
 		# Assign subscribed desired position value to class variable, convert to radians
 		self.des_pos = data.data * self.deg_to_rad
@@ -55,12 +56,14 @@ class pos_control:
 	def act_callback(self,data):
 		# Assign subscribed actual position value to class variable, convert to radians
 		self.act_pos = data.data * self.count_to_rad
+		#print(self.act_pos)   # Debugging
 		
 
 	def timercallback(self,data):
 		# Calculate velocity, u
 		u = self.k * (self.des_pos-self.act_pos)
-		
+		#print(u)  # Debugging
+
 		# Create ouput message type and publish it
 		output = Twist()
 		# output.header.stamp = rospy.Time.now()
