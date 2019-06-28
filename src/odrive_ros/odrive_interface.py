@@ -8,6 +8,7 @@ import traceback
 
 import odrive
 from odrive.enums import *
+from odrive.utils import start_liveplotter, dump_errors
 
 import fibre
 
@@ -154,16 +155,29 @@ class ODriveInterfaceAPI(object):
         
         self.logger.info("Vbus %.2fV" % self.driver.vbus_voltage)
         
+        # Edit by GGC on June 28: Temporarily get rid of for loop since we are using 1 motor right now
+        # for i, axis in enumerate(self.axes):
+        #     self.logger.info("Calibrating axis %d..." % i)
+        #     axis.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
+        #     time.sleep(1)
+        #     while axis.current_state != AXIS_STATE_IDLE:
+        #         time.sleep(0.1)
+        #     if axis.error != 0:
+        #         self.logger.error("Failed calibration with axis error 0x%x, motor error 0x%x" % (axis.error, axis.motor.error))
+        #         return False
+        
+        
+        self.logger.info("Calibrating axis %d..." % 0)
+        self.axes[0].requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
+        time.sleep(1)
+        
         for i, axis in enumerate(self.axes):
-            self.logger.info("Calibrating axis %d..." % i)
-            axis.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
-            time.sleep(1)
             while axis.current_state != AXIS_STATE_IDLE:
                 time.sleep(0.1)
             if axis.error != 0:
                 self.logger.error("Failed calibration with axis error 0x%x, motor error 0x%x" % (axis.error, axis.motor.error))
                 return False
-                
+
         return True
         
     def preroll(self, wait=True):
@@ -262,8 +276,9 @@ class ODriveInterfaceAPI(object):
         # Edit by GGC on June 14: 
         # Checks if both axes (motors) are released/idled with AXIS_STATE_IDLE
         return self.axes[0].current_state == AXIS_STATE_IDLE and self.axes[1].current_state == AXIS_STATE_IDLE
-        
-    def engage(self):
+    
+    # Edit by GGC on June 28: make separate velocity and position engage functions    
+    def engage_vel(self):
         # Edit by GGC on June 14: 
         # Checks if driver is connected. If not, throws error.
         # Engages motors with AXIS_STATE_CLOSED_LOOP_CONTROL.
@@ -275,13 +290,30 @@ class ODriveInterfaceAPI(object):
 
         #self.logger.debug("Setting drive mode.")
         for axis in self.axes:
-            axis.controller.vel_setpoint = 0
             axis.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
             axis.controller.config.control_mode = CTRL_MODE_VELOCITY_CONTROL
-        
+            axis.controller.config.vel_limit = 200000.0
+            axis.controller.vel_setpoint = 0
+
         #self.engaged = True
         return True
-        
+    
+    def engage_pos(self):
+        # Checks if driver is connected. If not, throws error.
+        # Engages motors with AXIS_STATE_CLOSED_LOOP_CONTROL.
+        # Then enters position mode with CTRL_MODE_POSITION_CONTROL
+
+        if not self.driver:
+            self.logger.error("Not connected.")
+            return False
+        for axis in self.axes:
+            axis.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
+            axis.controller.config.control_mode = CTRL_MODE_POSITION_CONTROL
+            axis.controller.pos_setpoint = 0
+
+        return True
+
+
     def release(self):
         # Edit by GGC on June 14: 
         # Checks if driver is connected. If not, throws error.
@@ -297,7 +329,22 @@ class ODriveInterfaceAPI(object):
         #self.engaged = False
         return True
     
-    def drive(self, left_motor_val, right_motor_val):
+    def clearE(self):
+        # Edit by GGC on June 28
+        # An attempt to clear odrive errors
+        if not self.driver:
+            self.logger.error("Not connected.")
+            return False
+        else:
+            print(dump_errors(self.driver))
+            dump_errors(self.driver, True)
+            return True
+
+
+
+
+
+    def drive_vel(self, left_motor_val, right_motor_val):
         # Edit by GGC on June 14: 
         # Checks if driver is connected. If not, throws error.
         # Executes axis.controller.vel_setpoint for each axis (motor) to make them move!
@@ -308,10 +355,25 @@ class ODriveInterfaceAPI(object):
             return
         #try:
         self.left_axis.controller.vel_setpoint = left_motor_val
-        self.right_axis.controller.vel_setpoint = -right_motor_val
+        #self.right_axis.controller.vel_setpoint = -right_motor_val
+        self.right_axis.controller.vel_setpoint = right_motor_val
         #except (fibre.protocol.ChannelBrokenException, AttributeError) as e:
         #    raise ODriveFailure(str(e))
+    
+    def drive_pos(self, left_motor_val, right_motor_val):
+        # Edit by GGC on June 28: 
+        # Checks if driver is connected. If not, throws error.
+        # Executes axis.controller.pos_setpoint for each axis (motor) to make them move!
+        # For wheeled bot, one motor must spin the opposite direction as the other to go straight
+
+        if not self.driver:
+            self.logger.error("Not connected.")
+            return
         
+        self.left_axis.controller.pos_setpoint = left_motor_val
+        self.right_axis.controller.pos_setpoint = right_motor_val
+        
+
     def get_errors(self, clear=True):
         # Edit by GGC on June 14: 
         # Checks if driver is connected. If not, returns "none".

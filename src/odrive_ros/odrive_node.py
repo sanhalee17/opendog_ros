@@ -10,7 +10,7 @@ import tf2_ros
 # Edit by GGC on June 14: 
 # Imports message types and services from several libraries
 from std_msgs.msg import Float64, Int32
-from geometry_msgs.msg import Twist, TransformStamped
+from geometry_msgs.msg import Twist, TransformStamped, Pose
 from nav_msgs.msg import Odometry
 import std_srvs.srv
 
@@ -91,6 +91,8 @@ class ODriveNode(object):
         self.base_frame      = rospy.get_param('~base_frame', "base_link")
         self.odom_calc_hz    = rospy.get_param('~odom_calc_hz', 100)  # Edit by GGC on June 20
         
+        self.mode            = rospy.get_param('~control_mode', "velocity")
+
         rospy.on_shutdown(self.terminate)
 
         rospy.Service('connect_driver',    std_srvs.srv.Trigger, self.connect_driver)
@@ -99,9 +101,14 @@ class ODriveNode(object):
         rospy.Service('calibrate_motors',  std_srvs.srv.Trigger, self.calibrate_motor)
         rospy.Service('engage_motors',     std_srvs.srv.Trigger, self.engage_motor)
         rospy.Service('release_motors',    std_srvs.srv.Trigger, self.release_motor)
+
+        rospy.Service('clear_errors',    std_srvs.srv.Trigger, self.clear_errors)
         
         self.command_queue = Queue.Queue(maxsize=5)
-        self.vel_subscribe = rospy.Subscriber("/cmd_vel", Twist, self.cmd_vel_callback, queue_size=2)
+        if(self.mode is "velocity"):
+            self.vel_subscribe = rospy.Subscriber("/cmd_vel", Twist, self.cmd_vel_callback, queue_size=2)
+        else:
+            self.pos_subscribe = rospy.Subscriber("/cmd_pos", Pose, self.cmd_pos_callback, queue_size=2)
         
         if self.publish_current:
             self.current_loop_count = 0
@@ -117,7 +124,7 @@ class ODriveNode(object):
             self.raw_odom_publisher_encoder_left  = rospy.Publisher('odrive/raw_odom/encoder_left',   Int32, queue_size=2) if self.publish_raw_odom else None
             # Temporary Edit by GGC on June 25: commented this so I could test pos_control with rostopic pub
             # REMEMBER TO UNCOMMENT THIS WHEN WE USE THE MOTOR!
-            # self.raw_odom_publisher_encoder_right = rospy.Publisher('odrive/raw_odom/encoder_right',  Int32, queue_size=2) if self.publish_raw_odom else None
+            self.raw_odom_publisher_encoder_right = rospy.Publisher('odrive/raw_odom/encoder_right',  Int32, queue_size=2) if self.publish_raw_odom else None
             self.raw_odom_publisher_vel_left      = rospy.Publisher('odrive/raw_odom/velocity_left',  Int32, queue_size=2) if self.publish_raw_odom else None
             self.raw_odom_publisher_vel_right     = rospy.Publisher('odrive/raw_odom/velocity_right', Int32, queue_size=2) if self.publish_raw_odom else None
                             
@@ -282,14 +289,30 @@ class ODriveNode(object):
             
             if motor_command[0] == 'drive':
                 try:
-                    if not self.driver.engaged():
-                        self.driver.engage()
+                    # Edit by GGC on June 28
+                    # if not self.driver.engaged():
+                    #     self.driver.engage()
                         
                     left_linear_val, right_linear_val = motor_command[1]
-                    self.driver.drive(left_linear_val, right_linear_val)
+                    
+                    # Edit by GGC on June 28:
+                    # Check mode
+                    if(self.mode is "velocity"):
+                        if not self.driver.engaged():
+                            self.driver.engage_vel()
+                            
+                        self.driver.drive_vel(left_linear_val, right_linear_val)
+                        self.last_speed = max(abs(left_linear_val), abs(right_linear_val))
+                        self.last_cmd_vel_time = time_now
+                    else:
+                        if not self.driver.engaged():
+                            self.driver.engage_pos()
+
+                        self.driver.drive_pos(left_linear_val, right_linear_val)
+                        self.last_cmd_vel_time = time_now   # change to be last_cmd_pos_time????
+
                     print("attempted to write to Odrive")
-                    self.last_speed = max(abs(left_linear_val), abs(right_linear_val))
-                    self.last_cmd_vel_time = time_now
+                    
                 except:
                     rospy.logerr("Fast timer exception on drive cmd:" + traceback.format_exc())
                     self.fast_timer_comms_active = False
@@ -393,9 +416,17 @@ class ODriveNode(object):
         if not self.driver:
             rospy.logerr("Not connected.")
             return (False, "Not connected.")
-        if not self.driver.engage():
-            return (False, "Failed to engage motor.")
-        return (True, "Engage motor success.")
+        
+        # Edit by GGC on June 28
+        # Add position control engage
+        if(self.mode is "velocity"):
+            if not self.driver.engage_vel():
+                return (False, "Failed to engage motor.")
+            return (True, "Engage motor success.")
+        else:
+            if not self.driver.engage_pos():
+                return (False, "Failed to engage motor.")
+            return (True, "Engage motor success.")
     
     def release_motor(self, request):
         # Edit by GGC on June 14: 
@@ -411,7 +442,21 @@ class ODriveNode(object):
             return (False, "Failed to release motor.")
         return (True, "Release motor success.")
         
-    
+    def clear_errors(self, request):
+        # Edit by GGC on June 14: 
+        # Checks if driver is connected. If not, throws error.
+        # Calls release() function to execute AXIS_STATE_IDLE
+            # If this fails, returns False and error message
+        # If successful, returns True and success message
+
+        if not self.driver:
+            rospy.logerr("Not connected.")
+            return (False, "Not connected.")
+        if not self.driver.clearE():
+            return (False, "Failed to dump errors.")
+        return (True, "Dumped errors success.")
+
+
     def reset_odometry(self, request):
         self.x = 0.0
         self.y = 0.0
@@ -451,7 +496,8 @@ class ODriveNode(object):
         
         # Editted by GGC on June 21:
         rad_to_count = self.encoder_cpr / (2 * math.pi)
-        left_linear_val, right_linear_val = msg.linear.x*rad_to_count, msg.angular.z*rad_to_count
+        # left_linear_val, right_linear_val = msg.linear.x*rad_to_count, msg.angular.z*rad_to_count   # Edit by GGC on June 28
+        left_linear_val, right_linear_val = msg.linear.x, msg.angular.z
 
         # if wheel speed = 0, stop publishing after sending 0 once. #TODO add error term, work out why VESC turns on for 0 rpm
         
@@ -469,7 +515,22 @@ class ODriveNode(object):
             pass
             
         self.last_cmd_vel_time = rospy.Time.now()
-                
+    
+    def cmd_pos_callback(self, msg):
+        deg_to_rad = math.pi / 180
+        rad_to_count = 8192 / (2 * math.pi)
+
+
+        left_linear_val, right_linear_val = 0, msg.position.x * deg_to_rad * rad_to_count
+
+        try:
+            drive_command = ('drive', (left_linear_val, right_linear_val))
+            self.command_queue.put_nowait(drive_command)
+        except Queue.Full:
+            pass
+
+        self.last_cmd_vel_time = rospy.Time.now()   # change to be last_cmd_pos_time????
+
     def pub_current(self):
         current_quantizer = 5
         
@@ -580,7 +641,7 @@ class ODriveNode(object):
             self.raw_odom_publisher_encoder_left.publish(self.new_pos_l)
             # Temporary Edit by GGC on June 25: commented this so I could test pos_control with rostopic pub
             # REMEMBER TO UNCOMMENT THIS WHEN WE USE THE MOTOR!
-            # self.raw_odom_publisher_encoder_right.publish(self.new_pos_r)    
+            self.raw_odom_publisher_encoder_right.publish(self.new_pos_r)    
             self.raw_odom_publisher_vel_left.publish(self.vel_l)
             self.raw_odom_publisher_vel_right.publish(self.vel_r)
         

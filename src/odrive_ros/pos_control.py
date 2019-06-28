@@ -30,13 +30,23 @@ class pos_control:
 		self.sub_act = rospy.Subscriber("odrive/raw_odom/encoder_right", Int32, self.act_callback)
 		
 		# Define class-owned variables
+		# Position variables
 		self.des_pos = None
-		self.act_pos = None
-		self.k = 0.5  # damping
+		self.act_pos = 0.
+		self.rawnow = None
+		self.rawlast = None
+		self.init_pos = None
+		
+		self.k = 5.  # damping
+		self.laps = 0  # tracks number of revolutions
+		self.maxspeed = 19000  # velocity limit (counts/s)
+
+		# Conversions
 		self.deg_to_rad = np.pi / 180
 		self.rad_to_deg = 180 / np.pi
 		self.count_to_rad = (2 * np.pi) / 8192
 		self.rad_to_count = 8192 / (2 * np.pi)
+
 		
 		#now set up your publisher
 		#this publisher will publish on a timer.
@@ -51,24 +61,53 @@ class pos_control:
 		#time_this_happened = data.header.stamp
 		
 		# Assign subscribed desired position value to class variable, convert to radians
-		self.des_pos = data.data * self.deg_to_rad
+		self.des_pos = data.data * self.deg_to_rad * self.rad_to_count
+		print("Des: %s", self.des_pos)
 
 	def act_callback(self,data):
 		# Assign subscribed actual position value to class variable, convert to radians
-		self.act_pos = data.data * self.count_to_rad
-		#print(self.act_pos)   # Debugging
-		
+		if(self.init_pos is None):
+			# If init_pos has not yet been assigned a value...
+			# ...set it to the current position.
+			self.rawnow = data.data
+			self.rawlast = data.data
+			self.init_pos = data.data
+			self.act_pos = self.rawnow - self.init_pos   # Should be 0 initially
+			# print("Act: %s", self.act_pos)   # Debugging
+		else:
+			# If init_pos has a value...
+			# ...calculate how many laps the motor has completed.
+			self.rawnow = data.data
+			if(abs(self.rawnow - self.rawlast) > 6):
+				self.laps-=np.sign(self.rawnow - self.rawlast)
+
+			# Then calculate the actual position.
+			self.act_pos = (self.rawnow - self.init_pos) + (2 * np.pi * self.laps)
+			self.rawlast = self.rawnow         # reset rawlast to current value
+			# print("Act: %s", self.act_pos)   # Debugging
 
 	def timercallback(self,data):
-		# Calculate velocity, u
-		u = self.k * (self.des_pos-self.act_pos)
-		#print(u)  # Debugging
+		# Calculate velocity, u.
 
-		# Create ouput message type and publish it
-		output = Twist()
-		# output.header.stamp = rospy.Time.now()
-		output.angular.z = u
-		self.pub.publish(output)
+		if(self.des_pos is not None):
+			# If the node has received a value for desired position...
+			# ...calculate u.
+			u = self.k * (self.des_pos-self.act_pos)
+			
+			# Check if u has surpassed the maximum speed
+			if(abs(u)>self.maxspeed):
+				u = np.sign(u) * self.maxspeed
+				print("Limited!")
+
+			print(u)  # Debugging
+			
+			# Create ouput message type and publish it
+			output = Twist()
+			# output.header.stamp = rospy.Time.now()
+			output.angular.z = u
+			self.pub.publish(output)
+		else:
+			pass
 
 def main(args):
 	rospy.init_node('pos_control',anonymous=True)
