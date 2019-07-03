@@ -212,13 +212,23 @@ class ODriveInterfaceAPI(object):
         self._preroll_started = True
         
         if wait:
-            for i, axis in enumerate(self.axes):
-                while axis.current_state != AXIS_STATE_IDLE:
-                    time.sleep(0.1)
-            for i, axis in enumerate(self.axes):
-                if axis.error != 0:
-                    self.logger.error("Failed preroll with axis error 0x%x, motor error 0x%x" % (axis.error, axis.motor.error))
-                    return False
+            # Edit by GGC on July 1
+            # for i, axis in enumerate(self.axes):
+            #     while axis.current_state != AXIS_STATE_IDLE:
+            #         time.sleep(0.1)
+            # for i, axis in enumerate(self.axes):
+            #     if axis.error != 0:
+            #         self.logger.error("Failed preroll with axis error 0x%x, motor error 0x%x" % (axes[0].error, axes[0].motor.error))
+            #         return False
+            # self._preroll_completed = True
+
+            
+            while self.axes[0].current_state != AXIS_STATE_IDLE:
+                time.sleep(0.1)
+            
+            if self.axes[0].error != 0:
+                self.logger.error("Failed preroll with axis error 0x%x, motor error 0x%x" % (self.axes[0].error, self.axes[0].motor.error))
+                return False
             self._preroll_completed = True
         else:
             self.logger.error("Wait was false")  # Edit by GGC on June 14: print to find where it's failing
@@ -309,6 +319,7 @@ class ODriveInterfaceAPI(object):
         for axis in self.axes:
             axis.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
             axis.controller.config.control_mode = CTRL_MODE_POSITION_CONTROL
+            axis.controller.config.vel_limit = 200000.0
             axis.controller.pos_setpoint = 0
 
         return True

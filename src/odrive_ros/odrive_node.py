@@ -91,7 +91,8 @@ class ODriveNode(object):
         self.base_frame      = rospy.get_param('~base_frame', "base_link")
         self.odom_calc_hz    = rospy.get_param('~odom_calc_hz', 100)  # Edit by GGC on June 20
         
-        self.mode            = rospy.get_param('~control_mode', "velocity")
+        self.mode            = rospy.get_param('~control_mode', "position")
+        print(self.mode)
 
         rospy.on_shutdown(self.terminate)
 
@@ -105,11 +106,24 @@ class ODriveNode(object):
         rospy.Service('clear_errors',    std_srvs.srv.Trigger, self.clear_errors)
         
         self.command_queue = Queue.Queue(maxsize=5)
-        if(self.mode is "velocity"):
-            self.vel_subscribe = rospy.Subscriber("/cmd_vel", Twist, self.cmd_vel_callback, queue_size=2)
-        else:
-            self.pos_subscribe = rospy.Subscriber("/cmd_pos", Pose, self.cmd_pos_callback, queue_size=2)
         
+        # Edit by GGC on June 28: Determine subscribed topic based on control mode
+        # Edit by GGC on July 3: Switch if statement to check position first?
+        # For some reason, when it checks velocity first, it does not get into that if block
+        # if self.mode is "velocity":
+        #     self.vel_subscribe = rospy.Subscriber("/cmd_vel", Twist, self.cmd_vel_callback, queue_size=2)
+            # print("Subscribed to /cmd_vel")
+        # else:
+        #     self.pos_subscribe = rospy.Subscriber("/cmd_pos", Pose, self.cmd_pos_callback, queue_size=2)
+            # print("Subscribed to /cmd_pos")
+        
+        if self.mode is "position":
+            self.pos_subscribe = rospy.Subscriber("/cmd_pos", Pose, self.cmd_pos_callback, queue_size=2)
+            print("Subscribed to /cmd_pos")
+        else:
+            self.vel_subscribe = rospy.Subscriber("/cmd_vel", Twist, self.cmd_vel_callback, queue_size=2)
+            print("Subscribed to /cmd_vel")
+
         if self.publish_current:
             self.current_loop_count = 0
             self.left_current_accumulator  = 0.0
@@ -261,7 +275,7 @@ class ODriveNode(object):
             # check and stop motor if no vel command has been received in > 1s
             if self.fast_timer_comms_active:
                 if (time_now - self.last_cmd_vel_time).to_sec() > 0.5 and self.last_speed > 0:
-                    self.driver.drive(0,0)
+                    self.driver.drive_vel(0,0)  # *******CHECK THIS*******************************
                     self.last_speed = 0
                     self.last_cmd_vel_time = time_now
                 # release motor after 10s stopped
@@ -297,19 +311,36 @@ class ODriveNode(object):
                     
                     # Edit by GGC on June 28:
                     # Check mode
-                    if(self.mode is "velocity"):
+
+                    # Edit by GGC on July 3: Switch if statement to check position first?
+                    # For some reason, when it checks velocity first, it does not get into that if block
+                    # if self.mode is "velocity":
+                    #     if not self.driver.engaged():
+                    #         self.driver.engage_vel()
+                            
+                    #     self.driver.drive_vel(left_linear_val, right_linear_val)
+                    #     self.last_speed = max(abs(left_linear_val), abs(right_linear_val))
+                    #     self.last_cmd_vel_time = time_now
+                    # else:
+                    #     if not self.driver.engaged():
+                    #         self.driver.engage_pos()
+
+                    #     self.driver.drive_pos(left_linear_val, right_linear_val)
+                    #     self.last_cmd_vel_time = time_now   # change to be last_cmd_pos_time????
+
+                    if self.mode is "position":
+                        if not self.driver.engaged():
+                            self.driver.engage_pos()
+                        self.driver.drive_pos(left_linear_val, right_linear_val)
+                        self.last_cmd_vel_time = time_now   # change to be last_cmd_pos_time????
+                    else:
                         if not self.driver.engaged():
                             self.driver.engage_vel()
-                            
+                        
                         self.driver.drive_vel(left_linear_val, right_linear_val)
                         self.last_speed = max(abs(left_linear_val), abs(right_linear_val))
                         self.last_cmd_vel_time = time_now
-                    else:
-                        if not self.driver.engaged():
-                            self.driver.engage_pos()
 
-                        self.driver.drive_pos(left_linear_val, right_linear_val)
-                        self.last_cmd_vel_time = time_now   # change to be last_cmd_pos_time????
 
                     print("attempted to write to Odrive")
                     
@@ -419,14 +450,26 @@ class ODriveNode(object):
         
         # Edit by GGC on June 28
         # Add position control engage
-        if(self.mode is "velocity"):
-            if not self.driver.engage_vel():
-                return (False, "Failed to engage motor.")
-            return (True, "Engage motor success.")
-        else:
+
+        # Edit by GGC on July 3: Switch if statement to check position first?
+        # For some reason, when it checks velocity first, it does not get into that if block
+        # if self.mode is "velocity":
+        #     if not self.driver.engage_vel():
+        #         return (False, "Failed to engage_vel motor.")
+        #     return (True, "Engage_vel motor success.")
+        # else:
+        #     if not self.driver.engage_pos():
+        #         return (False, "Failed to engage_pos motor.")
+        #     return (True, "Engage_pos motor success.")
+
+        if self.mode is "position":
             if not self.driver.engage_pos():
-                return (False, "Failed to engage motor.")
-            return (True, "Engage motor success.")
+                return (False, "Failed to engage_pos motor.")
+            return (True, "Engage_pos motor success.")
+        else:
+            if not self.driver.engage_vel():
+                return (False, "Failed to engage_vel motor.")
+            return (True, "Engage_vel motor success.")
     
     def release_motor(self, request):
         # Edit by GGC on June 14: 
@@ -497,7 +540,7 @@ class ODriveNode(object):
         # Editted by GGC on June 21:
         rad_to_count = self.encoder_cpr / (2 * math.pi)
         # left_linear_val, right_linear_val = msg.linear.x*rad_to_count, msg.angular.z*rad_to_count   # Edit by GGC on June 28
-        left_linear_val, right_linear_val = msg.linear.x, msg.angular.z
+        left_linear_val, right_linear_val = msg.linear.x*10, msg.angular.z*10   # Edit by GGC, July 3: rqt sliders limited to +-10000
 
         # if wheel speed = 0, stop publishing after sending 0 once. #TODO add error term, work out why VESC turns on for 0 rpm
         
