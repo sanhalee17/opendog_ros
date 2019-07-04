@@ -5,7 +5,7 @@
     <!--<arg name="engage_on_startup"    default="true"/> -->
 
     <!--Edit by GGC on July 3 -->
-    <arg name="control_mode"   default="position"/>
+    <arg name="control_mode"   default="velocity"/>
 
     <arg name="publish_odom"   default="true"/>
     <arg name="publish_tf"     default="false"/>

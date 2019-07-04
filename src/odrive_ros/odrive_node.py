@@ -91,7 +91,7 @@ class ODriveNode(object):
         self.base_frame      = rospy.get_param('~base_frame', "base_link")
         self.odom_calc_hz    = rospy.get_param('~odom_calc_hz', 100)  # Edit by GGC on June 20
         
-        self.mode            = rospy.get_param('~control_mode', "position")
+        self.mode            = rospy.get_param('~control_mode', "velocity")
         print(self.mode)
 
         rospy.on_shutdown(self.terminate)
@@ -108,21 +108,18 @@ class ODriveNode(object):
         self.command_queue = Queue.Queue(maxsize=5)
         
         # Edit by GGC on June 28: Determine subscribed topic based on control mode
-        # Edit by GGC on July 3: Switch if statement to check position first?
-        # For some reason, when it checks velocity first, it does not get into that if block
-        # if self.mode is "velocity":
-        #     self.vel_subscribe = rospy.Subscriber("/cmd_vel", Twist, self.cmd_vel_callback, queue_size=2)
-            # print("Subscribed to /cmd_vel")
-        # else:
-        #     self.pos_subscribe = rospy.Subscriber("/cmd_pos", Pose, self.cmd_pos_callback, queue_size=2)
-            # print("Subscribed to /cmd_pos")
-        
-        if self.mode is "position":
+        # Edit by GGC on July 4: Changing "is" to "==" allows the if-else block to work properly
+        if self.mode == "position":
             self.pos_subscribe = rospy.Subscriber("/cmd_pos", Pose, self.cmd_pos_callback, queue_size=2)
             print("Subscribed to /cmd_pos")
-        else:
+        elif self.mode == "velocity":
             self.vel_subscribe = rospy.Subscriber("/cmd_vel", Twist, self.cmd_vel_callback, queue_size=2)
             print("Subscribed to /cmd_vel")
+        else:
+            # Edit by GGC on July 4:
+            # Debugging line to see if something went wrong with self.mode assignment...
+            # ...or the if statement syntax
+            print("Can't understand you, launch file")
 
         if self.publish_current:
             self.current_loop_count = 0
@@ -314,7 +311,7 @@ class ODriveNode(object):
 
                     # Edit by GGC on July 3: Switch if statement to check position first?
                     # For some reason, when it checks velocity first, it does not get into that if block
-                    # if self.mode is "velocity":
+                    # if self.mode == "velocity":
                     #     if not self.driver.engaged():
                     #         self.driver.engage_vel()
                             
@@ -327,8 +324,9 @@ class ODriveNode(object):
 
                     #     self.driver.drive_pos(left_linear_val, right_linear_val)
                     #     self.last_cmd_vel_time = time_now   # change to be last_cmd_pos_time????
-
-                    if self.mode is "position":
+                    
+                    # Edit by GGC on July 4: Changing "is" to "==" allows the if-else block to work properly
+                    if self.mode == "position":
                         if not self.driver.engaged():
                             self.driver.engage_pos()
                         self.driver.drive_pos(left_linear_val, right_linear_val)
@@ -453,7 +451,7 @@ class ODriveNode(object):
 
         # Edit by GGC on July 3: Switch if statement to check position first?
         # For some reason, when it checks velocity first, it does not get into that if block
-        # if self.mode is "velocity":
+        # if self.mode == "velocity":
         #     if not self.driver.engage_vel():
         #         return (False, "Failed to engage_vel motor.")
         #     return (True, "Engage_vel motor success.")
@@ -462,7 +460,8 @@ class ODriveNode(object):
         #         return (False, "Failed to engage_pos motor.")
         #     return (True, "Engage_pos motor success.")
 
-        if self.mode is "position":
+        # Edit by GGC on July 4: Changing "is" to "==" allows the if-else block to work properly
+        if self.mode == "position":
             if not self.driver.engage_pos():
                 return (False, "Failed to engage_pos motor.")
             return (True, "Engage_pos motor success.")
