@@ -79,7 +79,8 @@ class ODriveNode(object):
         #self.calibrate_on_startup = rospy.get_param('~calibrate_on_startup', False)
         #self.engage_on_startup    = rospy.get_param('~engage_on_startup', False)
         
-        self.has_preroll     = rospy.get_param('~use_preroll', True)
+        self.has_preroll     = rospy.get_param('~use_preroll', False)  # GGC on July 11: PREROLL IS NOT WORKING
+        # Specifically, when axis1 is put in Encoder Index Search, it throws the error: ERROR_INVALID_STATE
                 
         self.publish_current = rospy.get_param('~publish_current', True)
         self.publish_raw_odom =rospy.get_param('~publish_raw_odom', True)
@@ -91,7 +92,7 @@ class ODriveNode(object):
         self.base_frame      = rospy.get_param('~base_frame', "base_link")
         self.odom_calc_hz    = rospy.get_param('~odom_calc_hz', 100)  # Edit by GGC on June 20
         
-        self.mode            = rospy.get_param('~control_mode', "velocity")
+        self.mode            = rospy.get_param('~control_mode', "position")
         print(self.mode)
 
         rospy.on_shutdown(self.terminate)
@@ -563,7 +564,8 @@ class ODriveNode(object):
         rad_to_count = 8192 / (2 * math.pi)
 
 
-        left_linear_val, right_linear_val = 0, msg.position.x * deg_to_rad * rad_to_count
+        left_linear_val, right_linear_val = msg.position.y * deg_to_rad * rad_to_count, msg.position.x * deg_to_rad * rad_to_count
+        rospy.logwarn(str(left_linear_val) + ", " + str(right_linear_val))
 
         try:
             drive_command = ('drive', (left_linear_val, right_linear_val))

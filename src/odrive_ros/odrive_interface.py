@@ -28,6 +28,7 @@ class ODriveInterfaceAPI(object):
     driver = None
     # encoder_cpr = 4096
     encoder_cpr = 8192   # Edit by GGC on June 14
+    #axes = None
     right_axis = None
     left_axis = None
     connected = False
@@ -156,27 +157,27 @@ class ODriveInterfaceAPI(object):
         self.logger.info("Vbus %.2fV" % self.driver.vbus_voltage)
         
         # Edit by GGC on June 28: Temporarily get rid of for loop since we are using 1 motor right now
-        # for i, axis in enumerate(self.axes):
-        #     self.logger.info("Calibrating axis %d..." % i)
-        #     axis.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
-        #     time.sleep(1)
-        #     while axis.current_state != AXIS_STATE_IDLE:
-        #         time.sleep(0.1)
-        #     if axis.error != 0:
-        #         self.logger.error("Failed calibration with axis error 0x%x, motor error 0x%x" % (axis.error, axis.motor.error))
-        #         return False
-        
-        
-        self.logger.info("Calibrating axis %d..." % 0)
-        self.axes[0].requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
-        time.sleep(1)
-        
         for i, axis in enumerate(self.axes):
+            self.logger.info("Calibrating axis %d..." % i)
+            axis.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
+            time.sleep(1)
             while axis.current_state != AXIS_STATE_IDLE:
                 time.sleep(0.1)
             if axis.error != 0:
                 self.logger.error("Failed calibration with axis error 0x%x, motor error 0x%x" % (axis.error, axis.motor.error))
                 return False
+        
+        
+        # self.logger.info("Calibrating axis %d..." % 0)
+        # self.axes[0].requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
+        # time.sleep(1)
+        
+        # for i, axis in enumerate(self.axes):
+        #     while axis.current_state != AXIS_STATE_IDLE:
+        #         time.sleep(0.1)
+        #     if axis.error != 0:
+        #         self.logger.error("Failed calibration with axis error 0x%x, motor error 0x%x" % (axis.error, axis.motor.error))
+        #         return False
 
         return True
         
@@ -203,33 +204,33 @@ class ODriveInterfaceAPI(object):
 
         # Edit by GGC on June 14: 
         # Only look at axis0 (right motor) since we are working with one motor
-        # for i, axis in enumerate(self.axes):
-        #     self.logger.info("Index search preroll axis %d..." % i)
-        #     axis.requested_state = AXIS_STATE_ENCODER_INDEX_SEARCH
-        self.logger.info("Index search preroll axis %d..." % 0)
-        self.axes[0].requested_state = AXIS_STATE_ENCODER_INDEX_SEARCH
+        for i, axis in enumerate(self.axes):
+            self.logger.info("Index search preroll axis %d..." % i)
+            axis.requested_state = AXIS_STATE_ENCODER_INDEX_SEARCH
+        # self.logger.info("Index search preroll axis %d..." % 0)
+        # self.axes[0].requested_state = AXIS_STATE_ENCODER_INDEX_SEARCH
             
         self._preroll_started = True
         
         if wait:
             # Edit by GGC on July 1
-            # for i, axis in enumerate(self.axes):
-            #     while axis.current_state != AXIS_STATE_IDLE:
-            #         time.sleep(0.1)
-            # for i, axis in enumerate(self.axes):
-            #     if axis.error != 0:
-            #         self.logger.error("Failed preroll with axis error 0x%x, motor error 0x%x" % (axes[0].error, axes[0].motor.error))
-            #         return False
-            # self._preroll_completed = True
+            for i, axis in enumerate(self.axes):
+                while axis.current_state != AXIS_STATE_IDLE:
+                    time.sleep(0.1)
+            for i, axis in enumerate(self.axes):
+                if axis.error != 0:
+                    self.logger.error("Failed preroll with axis error 0x%x, motor error 0x%x" % (axis.error, axis.motor.error))
+                    return False
+            self._preroll_completed = True
 
             
-            while self.axes[0].current_state != AXIS_STATE_IDLE:
-                time.sleep(0.1)
+            # while self.axes[0].current_state != AXIS_STATE_IDLE:
+            #     time.sleep(0.1)
             
-            if self.axes[0].error != 0:
-                self.logger.error("Failed preroll with axis error 0x%x, motor error 0x%x" % (self.axes[0].error, self.axes[0].motor.error))
-                return False
-            self._preroll_completed = True
+            # if self.axes[0].error != 0:
+            #     self.logger.error("Failed preroll with axis error 0x%x, motor error 0x%x" % (self.axes[0].error, self.axes[0].motor.error))
+            #     return False
+            # self._preroll_completed = True
         else:
             self.logger.error("Wait was false")  # Edit by GGC on June 14: print to find where it's failing
             return False
@@ -316,11 +317,21 @@ class ODriveInterfaceAPI(object):
         if not self.driver:
             self.logger.error("Not connected.")
             return False
-        for axis in self.axes:
-            axis.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
-            axis.controller.config.control_mode = CTRL_MODE_POSITION_CONTROL
-            axis.controller.config.vel_limit = 200000.0
-            axis.controller.pos_setpoint = 0
+        # for axis in self.axes:
+        #     axis.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
+        #     axis.controller.config.control_mode = CTRL_MODE_POSITION_CONTROL
+        #     axis.controller.config.vel_limit = 200000.0
+        #     axis.controller.pos_setpoint = 0
+
+        self.axes[0].requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
+        self.axes[0].controller.config.control_mode = CTRL_MODE_POSITION_CONTROL
+        self.axes[0].controller.config.vel_limit = 200000.0
+        self.axes[0].controller.pos_setpoint = 0
+
+        self.axes[1].requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
+        self.axes[1].controller.config.control_mode = CTRL_MODE_POSITION_CONTROL
+        self.axes[1].controller.config.vel_limit = 200000.0
+        self.axes[1].controller.pos_setpoint = 0
 
         return True
 

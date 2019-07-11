@@ -1,11 +1,11 @@
 <!-- -*- mode: XML -*- -->
 <launch>
-    <arg name="connect_on_startup"   default="true"/>
+    <arg name="connect_on_startup"   default="false"/>
     <!--<arg name="calibrate_on_startup" default="true"/> -->
     <!--<arg name="engage_on_startup"    default="true"/> -->
 
     <!--Edit by GGC on July 3 -->
-    <arg name="control_mode"   default="velocity"/>
+    <arg name="control_mode"   default="position"/>
 
     <arg name="publish_odom"   default="true"/>
     <arg name="publish_tf"     default="false"/>
