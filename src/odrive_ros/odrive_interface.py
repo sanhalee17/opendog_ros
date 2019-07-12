@@ -28,7 +28,6 @@ class ODriveInterfaceAPI(object):
     driver = None
     # encoder_cpr = 4096
     encoder_cpr = 8192   # Edit by GGC on June 14
-    #axes = None
     right_axis = None
     left_axis = None
     connected = False
