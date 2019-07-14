@@ -33,9 +33,12 @@ class InverseKinematics:
 		# Publishers and Subscribers
 		#subscribe to a foot position P: (xP, yP)
 		# calls function to calculate d and thetaP
+		self.sub = rospy.Subscriber("/footPositionX",PoseStamped,pos_callback)
 
 		#publish leg angles (two separate publishers)
 		#do I need to publish on a timer or only when I get a new value???
+		self.femur = rospy.Publisher("/theta_f", Float64Stamped, queue_size = 1)
+		self.tibia = rospy.Publisher("/theta_t",Float64Stamped, queue_size = 1)
 
 
 		# Class Variables
@@ -58,7 +61,27 @@ class InverseKinematics:
 		self.theta_f = None
 		self.theta_t = None
 
-	#def 
+	def pos_callback(self, data):
+		# Calculate distance from hip joint to foot (d)...
+		# ...and angle with respect to x-axis
+		d = sqrt(data.position.x^2 + data.position.y^2)
+		theta_P = atan(data.position.y / data.position.x)
+
+		# Compute angles foot-hio-knee (theta_K) and hip-knee-foot (theta_HKP)
+		theta_K = acos((length_f^2 + d^2 - length_t^2)/(2 * d * length_f))
+		theta_HKP = acos((length_t^2 + length_f^2 - d^2) / (2 * length_f * length_t))
+
+		# Calculate desired angles of femur and tibia (including offsets)...
+		# ...and publish results
+		theta_f = Float64Stamped()
+		theta_f.header.stamp = rospy.Time.now()
+		theta_f = theta_P - theta_K - theta_K_shift + theta_H
+		self.femur.publish(theta_f)
+
+		theta_t = Float64Stamped()
+		theta_t.header.stamp = rospy.Time.now()
+		theta_t = theta_HKP - theta_HKP_shift - theta_t_shift
+		self.tibia.publish(theta_t)
 
 
 
