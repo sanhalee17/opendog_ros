@@ -10,7 +10,7 @@ import tf2_ros
 # Edit by GGC on June 14: 
 # Imports message types and services from several libraries
 from std_msgs.msg import Float64, Int32
-from geometry_msgs.msg import Twist, TransformStamped, Pose
+from geometry_msgs.msg import Twist, TransformStamped, PoseStamped
 from nav_msgs.msg import Odometry
 import std_srvs.srv
 
@@ -568,8 +568,13 @@ class ODriveNode(object):
         deg_to_rad = math.pi / 180
         rad_to_count = 8192 / (2 * math.pi)
 
+        # Edit by GGC on July 15: If it is receiving degrees...
+        # left_linear_val, right_linear_val = msg.position.y * deg_to_rad * rad_to_count, msg.position.x * deg_to_rad * rad_to_count
+        
+        # If it is receiving counts...
+        # left = tibia (axis 1), right = femur (axis 0)
+        left_linear_val, right_linear_val = msg.position.y, msg.position.x  
 
-        left_linear_val, right_linear_val = msg.position.y * deg_to_rad * rad_to_count, msg.position.x * deg_to_rad * rad_to_count
         rospy.logwarn(str(left_linear_val) + ", " + str(right_linear_val))
 
         try:

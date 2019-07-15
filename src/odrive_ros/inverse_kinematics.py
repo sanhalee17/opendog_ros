@@ -31,8 +31,7 @@ class InverseKinematics:
 		#self.mything = rospy.get_param('param_name',default_value)
 
 		# Publishers and Subscribers
-		#subscribe to a foot position P: (xP, yP)
-		# calls function to calculate d and thetaP
+		# Subscribe to a foot position P: (xP, yP)
 		self.sub = rospy.Subscriber("/footPositionX",PoseStamped,pos_callback)
 
 		#publish leg angles (two separate publishers)
@@ -44,13 +43,13 @@ class InverseKinematics:
 		# Class Variables
 
 		# Measured Values:
-		# *********Values to be determined**********
-		self.length_f = None
-		self.length_t = None
-		self.theta_K_shift = None
-		self.theta_HKP_shift = None
-		self.theta_H = None
-		self.theta_t_shift = None
+		# All lengths are in inches and angles are in degrees
+		self.length_f = 14.107
+		self.length_t = 12.233
+		self.theta_K_shift = 16.6
+		self.theta_HKP_shift = 0
+		self.theta_H = 16.9
+		self.theta_t_shift = 15.8
 
 		# To be calculated...
 		self.d = None
@@ -61,26 +60,28 @@ class InverseKinematics:
 		self.theta_f = None
 		self.theta_t = None
 
+
+
 	def pos_callback(self, data):
 		# Calculate distance from hip joint to foot (d)...
 		# ...and angle with respect to x-axis
-		d = sqrt(data.position.x^2 + data.position.y^2)
-		theta_P = atan(data.position.y / data.position.x)
+		self.d = sqrt(data.position.x^2 + data.position.y^2)
+		self.theta_P = arctan(data.position.y / data.position.x)
 
 		# Compute angles foot-hio-knee (theta_K) and hip-knee-foot (theta_HKP)
-		theta_K = acos((length_f^2 + d^2 - length_t^2)/(2 * d * length_f))
-		theta_HKP = acos((length_t^2 + length_f^2 - d^2) / (2 * length_f * length_t))
+		self.theta_K = arccos((self.length_f^2 + self.d^2 - self.length_t^2)/(2 * self.d * self.length_f))
+		self.theta_HKP = arccos((self.length_t^2 + self.length_f^2 - self.d^2) / (2 * self.length_f * self.length_t))
 
 		# Calculate desired angles of femur and tibia (including offsets)...
 		# ...and publish results
-		theta_f = Float64Stamped()
-		theta_f.header.stamp = rospy.Time.now()
-		theta_f = theta_P - theta_K - theta_K_shift + theta_H
+		self.theta_f = Float64Stamped()
+		self.theta_f.header.stamp = rospy.Time.now()
+		self.theta_f = self.theta_P - self.theta_K - self.theta_K_shift + self.theta_H
 		self.femur.publish(theta_f)
 
-		theta_t = Float64Stamped()
-		theta_t.header.stamp = rospy.Time.now()
-		theta_t = theta_HKP - theta_HKP_shift - theta_t_shift
+		self.theta_t = Float64Stamped()
+		self.theta_t.header.stamp = rospy.Time.now()
+		self.theta_t = self.theta_HKP - self.theta_HKP_shift - self.theta_t_shift
 		self.tibia.publish(theta_t)
 
 
