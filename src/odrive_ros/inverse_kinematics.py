@@ -65,12 +65,12 @@ class InverseKinematics:
 	def pos_callback(self, data):
 		# Calculate distance from hip joint to foot (d)...
 		# ...and angle with respect to x-axis
-		self.d = sqrt(data.position.x^2 + data.position.y^2)
+		self.d = sqrt(data.position.x**2 + data.position.y**2)
 		self.theta_P = arctan(data.position.y / data.position.x)
 
 		# Compute angles foot-hio-knee (theta_K) and hip-knee-foot (theta_HKP)
-		self.theta_K = arccos((self.length_f^2 + self.d^2 - self.length_t^2)/(2 * self.d * self.length_f))
-		self.theta_HKP = arccos((self.length_t^2 + self.length_f^2 - self.d^2) / (2 * self.length_f * self.length_t))
+		self.theta_K = arccos((self.length_f**2 + self.d**2 - self.length_t**2)/(2 * self.d * self.length_f))
+		self.theta_HKP = arccos((self.length_t**2 + self.length_f**2 - self.d**2) / (2 * self.length_f * self.length_t))
 
 		# Calculate desired angles of femur and tibia (including offsets)...
 		# ...and publish results

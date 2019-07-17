@@ -40,7 +40,7 @@ class MotorPosition:
 		self.pub = rospy.Publisher("/cmd_pos", PoseStamped, queue_size = 1)
 
 		# Set up a timed loop
-		rospy.Timer(rospy.Duration(0.01), self.timer_callback, oneshot=False)
+		# rospy.Timer(rospy.Duration(0.01), self.timer_callback, oneshot=False)
 
 		# Class variables
 		# Measured Values:
@@ -88,6 +88,8 @@ class MotorPosition:
 
 
 	def femur_motor_callback(self, data):
+		self.theta_f = data.data
+
 		self.theta_HNL = arcsin((self.constraint_H * sin(self.theta_f)) / self.link_H)
 		self.theta_HLN = 180 - self.theta_f - self.theta_HNL
 
@@ -101,32 +103,63 @@ class MotorPosition:
 		self.last_BN_f = self.des_BN_f
 
 	def tibia_motor_callback(self, data):
-		self.theta_KNL = arcsin((self.constraint_K * sin(self.theta_t)) / self.link_K)
-		self.theta_KLN = 180 - self.theta_KNL - self.theta_t
+		if(self.theta_f is not None):
+			self.theta_t = data.data
 
-		self.length_KBN = ((self.link_K * sin(self.theta_KLN)) / sin(self.theta_t)) - self.mount_K
-		self.des_BN_t = self.ball_screw - self.length_KBN
-		self.delta_BN_t = self.des_BN_t - self.last_BN_t
+			self.theta_KNL = arcsin((self.constraint_K * sin(self.theta_t)) / self.link_K)
+			self.theta_KLN = 180 - self.theta_KNL - self.theta_t
 
-		# Reset value of last ball nut positon
-		# Do we want real feedback?
-		self.last_BN_t = self.des_BN_t
+			self.length_KBN = ((self.link_K * sin(self.theta_KLN)) / sin(self.theta_t)) - self.mount_K
+			self.des_BN_t = self.ball_screw - self.length_KBN
+			self.delta_BN_t = self.des_BN_t - self.last_BN_t
+
+			# Reset value of last ball nut positon
+			# Do we want real feedback?
+			self.last_BN_t = self.des_BN_t
+
+			# Finds motor positions based on ball nut positions
+			self.delta_motor_f = self.delta_BN_f * self.distance_to_motor_pos
+			self.des_pos_f = self.delta_motor_f + self.last_pos_f
+
+			self.delta_motor_t = self.delta_BN_t * self.distance_to_motor_pos
+			self.des_pos_t = self.delta_motor_t + self.last_pos_t
+
+			motor_pos = PoseStamped()
+			header.stamp = rospy.Time.now()
+			motor_pos = (self.des_pos_f, self.des_pos_t)
+			self.pub.publish(motor_pos)
+
+			# Reset value of last motor positons
+			# Do we want real feedback?
+			self.last_pos_f = self.des_pos_f
+			self.last_pos_t = self.des_pos_t
+		else:
+			pass
 
 
 	# function that takes these two distances and converts them into motor positions
 	# need a self.last_pos_f too so that motor knows where it needs to turn to
 	# consider direction (cw or ccw)
-	def timer_callback(self, data):
-		self.delta_motor_f = self.delta_BN_f * self.distance_to_motor_pos
-		self.des_pos_f = self.delta_motor_f + self.last_pos_f
+	# def timer_callback(self, data):
+	# 	if(self.delta_BN_f and self.delta_BN_t is not None):
+	# 		self.delta_motor_f = self.delta_BN_f * self.distance_to_motor_pos
+	# 		self.des_pos_f = self.delta_motor_f + self.last_pos_f
 
-		self.delta_motor_t = self.delta_BN_t * self.distance_to_motor_pos
-		self.des_pos_t = self.delta_motor_t + self.last_pos_t
+	# 		self.delta_motor_t = self.delta_BN_t * self.distance_to_motor_pos
+	# 		self.des_pos_t = self.delta_motor_t + self.last_pos_t
 
-		motor_pos = PoseStamped()
-		header.stamp = rospy.Time.now()
-		motor_pos = (self.des_pos_f, self.des_pos_t)
-		self.pub.publish(motor_pos)
+	# 		motor_pos = PoseStamped()
+	# 		header.stamp = rospy.Time.now()
+	# 		motor_pos = (self.des_pos_f, self.des_pos_t)
+	# 		self.pub.publish(motor_pos)
+
+	# 		# Reset value of last motor positons
+	# 		# Do we want real feedback?
+	# 		self.last_pos_f = self.des_pos_f
+	# 		self.last_pos_t = self.des_pos_t
+	# 	else:
+	# 		pass
+
 
 
 
