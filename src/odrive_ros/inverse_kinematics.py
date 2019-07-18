@@ -7,6 +7,8 @@
 
 #basics
 import rospy
+import sys
+import roslib
 roslib.load_manifest('odrive_ros')
 
 
@@ -15,8 +17,8 @@ import tf_conversions
 import tf2_ros
 
 # Imports message types and services from several libraries
-from std_msgs.msg import Float64Stamped, Int32Stamped
-from geometry_msgs.msg import TwistStamped, TransformStamped, PoseStamped
+from std_msgs.msg import Float64  #,Float64Stamped, Int32Stamped
+from geometry_msgs.msg import TwistStamped, TransformStamped, Pose #PoseStamped
 import std_srvs.srv
 
 import time
@@ -32,12 +34,15 @@ class InverseKinematics:
 
 		# Publishers and Subscribers
 		# Subscribe to a foot position P: (xP, yP)
-		self.sub = rospy.Subscriber("/footPositionX",PoseStamped,pos_callback)
+		# self.sub = rospy.Subscriber("/footPosition",PoseStamped,pos_callback)
+		self.sub = rospy.Subscriber("/footPosition",Pose,self.pos_callback)
 
 		#publish leg angles (two separate publishers)
 		#do I need to publish on a timer or only when I get a new value???
-		self.femur = rospy.Publisher("/theta_f", Float64Stamped, queue_size = 1)
-		self.tibia = rospy.Publisher("/theta_t",Float64Stamped, queue_size = 1)
+		# self.femur = rospy.Publisher("/theta_f", Float64Stamped, queue_size = 1)
+		# self.tibia = rospy.Publisher("/theta_t",Float64Stamped, queue_size = 1)
+		self.femur = rospy.Publisher("/theta_f", Float64, queue_size = 1)
+		self.tibia = rospy.Publisher("/theta_t",Float64, queue_size = 1)
 
 
 		# Class Variables
@@ -63,26 +68,31 @@ class InverseKinematics:
 
 
 	def pos_callback(self, data):
+		print("Received position!")
 		# Calculate distance from hip joint to foot (d)...
 		# ...and angle with respect to x-axis
 		self.d = sqrt(data.position.x**2 + data.position.y**2)
 		self.theta_P = arctan(data.position.y / data.position.x)
 
-		# Compute angles foot-hio-knee (theta_K) and hip-knee-foot (theta_HKP)
+		# Compute angles foot-hip-knee (theta_K) and hip-knee-foot (theta_HKP)
 		self.theta_K = arccos((self.length_f**2 + self.d**2 - self.length_t**2)/(2 * self.d * self.length_f))
 		self.theta_HKP = arccos((self.length_t**2 + self.length_f**2 - self.d**2) / (2 * self.length_f * self.length_t))
 
 		# Calculate desired angles of femur and tibia (including offsets)...
 		# ...and publish results
-		self.theta_f = Float64Stamped()
-		self.theta_f.header.stamp = rospy.Time.now()
+		# self.theta_f = Float64Stamped()
+		# self.theta_f.header.stamp = rospy.Time.now()
+		self.theta_f = Float64()
 		self.theta_f = self.theta_P - self.theta_K - self.theta_K_shift + self.theta_H
-		self.femur.publish(theta_f)
+		print("theta_f: " + str(self.theta_f))
+		self.femur.publish(self.theta_f)
 
-		self.theta_t = Float64Stamped()
-		self.theta_t.header.stamp = rospy.Time.now()
+		# self.theta_t = Float64Stamped()
+		# self.theta_t.header.stamp = rospy.Time.now()
+		self.theta_t = Float64()
 		self.theta_t = self.theta_HKP - self.theta_HKP_shift - self.theta_t_shift
-		self.tibia.publish(theta_t)
+		print("theta_t: " + str(self.theta_t))
+		self.tibia.publish(self.theta_t)
 
 
 

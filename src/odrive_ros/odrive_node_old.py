@@ -538,9 +538,9 @@ class ODriveNode(object):
         # print (left_linear_val,right_linear_val)
         
         # Editted by GGC on June 21:
-        # rad_to_count = self.encoder_cpr / (2 * math.pi)
-        # # left_linear_val, right_linear_val = msg.linear.x*rad_to_count, msg.angular.z*rad_to_count   # Edit by GGC on June 28
-        # left_linear_val, right_linear_val = msg.linear.x*10, msg.angular.z*10   # Edit by GGC, July 3: rqt sliders limited to +-10000
+        rad_to_count = self.encoder_cpr / (2 * math.pi)
+        # left_linear_val, right_linear_val = msg.linear.x*rad_to_count, msg.angular.z*rad_to_count   # Edit by GGC on June 28
+        left_linear_val, right_linear_val = msg.linear.x*10, msg.angular.z*10   # Edit by GGC, July 3: rqt sliders limited to +-10000
 
         # if wheel speed = 0, stop publishing after sending 0 once. #TODO add error term, work out why VESC turns on for 0 rpm
         
@@ -550,11 +550,6 @@ class ODriveNode(object):
         #wheel_left.set_speed(v_l)
         #wheel_right.set_speed(v_r)
         
-        
-        rad_to_count = self.encoder_cpr / (2 * math.pi)
-        right_linear_val = msg.angular.z*10
-        left_linear_val = msg.linear.x*10    # Edit by GGC, July 3: rqt sliders limited to +-10000
-
         #rospy.logdebug("Driving left: %d, right: %d, from linear.x %.2f and angular.z %.2f" % (left_linear_val, right_linear_val, msg.linear.x, msg.angular.z))
         try:
             drive_command = ('drive', (left_linear_val, right_linear_val))
@@ -568,13 +563,8 @@ class ODriveNode(object):
         deg_to_rad = math.pi / 180
         rad_to_count = 8192 / (2 * math.pi)
 
-        # Edit by GGC on July 15: If it is receiving degrees...
-        # left_linear_val, right_linear_val = msg.position.y * deg_to_rad * rad_to_count, msg.position.x * deg_to_rad * rad_to_count
-        
-        # If it is receiving counts...
-        # left = femur (axis 1), right = tibia (axis 0)
-        left_linear_val, right_linear_val = msg.position.y, msg.position.x  
 
+        left_linear_val, right_linear_val = msg.position.y * deg_to_rad * rad_to_count, msg.position.x * deg_to_rad * rad_to_count
         rospy.logwarn(str(left_linear_val) + ", " + str(right_linear_val))
 
         try:
