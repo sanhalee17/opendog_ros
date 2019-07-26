@@ -48,13 +48,22 @@ class InverseKinematics:
 		# Class Variables
 
 		# Measured Values:
-		# All lengths are in inches and angles are in degrees
-		self.length_f = 14.107
-		self.length_t = 12.233
-		self.theta_K_shift = 16.6
-		self.theta_HKP_shift = 0
-		self.theta_H = 16.9
-		self.theta_t_shift = 15.8
+		# All lengths are in inches and angles are in degrees (and converted to radians)
+		self.length_f = 14.125
+		self.length_t = 13.25
+		self.theta_K_shift = 16.6*(pi/180)
+		self.theta_HKP_shift = 1*(pi/180)
+		self.theta_H = 16.9*(pi/180)
+		self.theta_t_shift = 15.8*(pi/180)
+
+		# Range of Motion
+		# self.R = 27.6236  # empirical
+		self.R = 27.375   # sum of length_f and length_t
+		self.r = 17.9904
+		self.theta_min_E = 39.91*(pi/180)
+		self.theta_max_E = 119.29*(pi/180)
+		self.theta_min_C = 4.0002*(pi/180)
+		self.theta_max_C = 71.1922*(pi/180)
 
 		# To be calculated...
 		self.d = None
@@ -72,27 +81,37 @@ class InverseKinematics:
 		# Calculate distance from hip joint to foot (d)...
 		# ...and angle with respect to x-axis
 		self.d = sqrt(data.position.x**2 + data.position.y**2)
-		self.theta_P = arctan(data.position.y / data.position.x)
+		self.theta_P = pi -  arctan2(data.position.y, data.position.x)
+		print(self.theta_P)
 
-		# Compute angles foot-hip-knee (theta_K) and hip-knee-foot (theta_HKP)
-		self.theta_K = arccos((self.length_f**2 + self.d**2 - self.length_t**2)/(2 * self.d * self.length_f))
-		self.theta_HKP = arccos((self.length_t**2 + self.length_f**2 - self.d**2) / (2 * self.length_f * self.length_t))
+		if(self.d > self.R):
+			print("Too far, can't reach that!")
+		elif(self.d < self.r):
+			print("Too close, can't reach that either")
+		elif(self.theta_P > self.theta_max_E):
+			print("Angle is too large")
+		elif(self.theta_P < self.theta_min_C):
+			print("Angle is too small")
+		else:
+			# Compute angles foot-hip-knee (theta_K) and hip-knee-foot (theta_HKP)
+			self.theta_K = arccos((self.length_f**2 + self.d**2 - self.length_t**2)/(2 * self.d * self.length_f))
+			self.theta_HKP = arccos((self.length_t**2 + self.length_f**2 - self.d**2) / (2 * self.length_f * self.length_t))
 
-		# Calculate desired angles of femur and tibia (including offsets)...
-		# ...and publish results
-		# self.theta_f = Float64Stamped()
-		# self.theta_f.header.stamp = rospy.Time.now()
-		self.theta_f = Float64()
-		self.theta_f = self.theta_P - self.theta_K - self.theta_K_shift + self.theta_H
-		print("theta_f: " + str(self.theta_f))
-		self.femur.publish(self.theta_f)
+			# Calculate desired angles of femur and tibia (including offsets)...
+			# ...and publish results
+			# self.theta_f = Float64Stamped()
+			# self.theta_f.header.stamp = rospy.Time.now()
+			self.theta_f = Float64()
+			self.theta_f = self.theta_P - self.theta_K - self.theta_K_shift + self.theta_H
+			print("theta_f: " + str(self.theta_f))
+			self.femur.publish(self.theta_f)
 
-		# self.theta_t = Float64Stamped()
-		# self.theta_t.header.stamp = rospy.Time.now()
-		self.theta_t = Float64()
-		self.theta_t = self.theta_HKP - self.theta_HKP_shift - self.theta_t_shift
-		print("theta_t: " + str(self.theta_t))
-		self.tibia.publish(self.theta_t)
+			# self.theta_t = Float64Stamped()
+			# self.theta_t.header.stamp = rospy.Time.now()
+			self.theta_t = Float64()
+			self.theta_t = self.theta_HKP - self.theta_HKP_shift - self.theta_t_shift
+			print("theta_t: " + str(self.theta_t))
+			self.tibia.publish(self.theta_t)
 
 
 

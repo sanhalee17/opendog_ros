@@ -64,7 +64,12 @@ class MotorPosition:
 		self.link_K = 7.047
 		self.mount_K = 2.177
 
-		self.ball_screw = 7.087    # full possible range, but really can't go this far
+		# Full length of both ball screws is 180 mm (7.087 in)...
+		# ...but ball nuts can't really travel the full range.  
+		# Otherwise, things will crash into each other (eg: the links will run into the encoder mounts).
+		# These effective lengths were measured empirically.
+		self.ball_screw_H = 5
+		self.ball_screw_K = 4.6063
 
 		# To be received from subscribed topics
 		self.theta_f = None
@@ -121,24 +126,34 @@ class MotorPosition:
 
 
 	def femur_motor_callback(self, data):
-		self.theta_f = data.data
+		#Femer angle is calculated from Inverse Kinematics code, zero is when the hip is tucked 
+		self.theta_f = data.data 
+		print(self.theta_f)
 
+		#Motor will not run if no data has been fed. 
 		if(self.init_motor_f is not None):
+			#motor will not run if theta_f does not have a value
 			if(self.theta_f is not None):
 				print("Received theta_f!")
-
+				
+				#calculating angle between ball screw and link
 				self.theta_HNL = arcsin((self.constraint_H * sin(self.theta_f)) / self.link_H)
-				self.theta_HLN = 180 - self.theta_f - self.theta_HNL
+				#angle between the constarint to linkage rod
+				self.theta_HLN = pi - self.theta_f - self.theta_HNL
 
-				self.length_HBN = ((self.link_H * sin(self.theta_HLN)) / sin(self.theta_f)) - self.mount_H
-				# reference to bottom mount?
-				self.des_BN_f = self.ball_screw - self.length_HBN
-				self.delta_BN_f = self.des_BN_f - self.last_BN_f
-				print(self.delta_BN_f)
+				#length from hip to ball nut
+				self.length_HBN = ((self.link_H * sin(self.theta_HLN)) / sin(self.theta_f)) 
+				# desired change in length (should be positive) of the ball screw
+				self.des_BN_f = self.ball_screw_H - (self.length_HBN - self.mount_H)
+				#To Do: add a check, make sure this is positive. Crash if negative.
+
+				#
+				#self.delta_BN_f = self.des_BN_f - self.last_BN_f
+				#print(self.delta_BN_f)
 
 				# Reset value of last ball nut positon
 				# Do we want real feedback?
-				self.last_BN_f = self.des_BN_f
+				#self.last_BN_f = self.des_BN_f
 			else:
 				pass
 		else:
@@ -149,24 +164,32 @@ class MotorPosition:
 			if(self.theta_f is not None):
 				print("Received theta_f and theta_t!")
 				self.theta_t = data.data
+				print("theta_t = " + str(self.theta_t))
 
 				self.theta_KNL = arcsin((self.constraint_K * sin(self.theta_t)) / self.link_K)
-				self.theta_KLN = 180 - self.theta_KNL - self.theta_t
+				print("theta_KNL = " + str(self.theta_KNL))
+				self.theta_KLN = pi - self.theta_KNL - self.theta_t
+				print("theta_KLN = " + str(self.theta_KNL))
 
 				self.length_KBN = ((self.link_K * sin(self.theta_KLN)) / sin(self.theta_t)) - self.mount_K
-				self.des_BN_t = self.ball_screw - self.length_KBN
-				self.delta_BN_t = self.des_BN_t - self.last_BN_t
+				print("length_KBN = " + str(self.length_KBN))
+				# self.des_BN_t = self.ball_screw_K - self.length_KBN
+				self.des_BN_t = self.length_KBN
+				#self.delta_BN_t = self.des_BN_t - self.last_BN_t
+				#print("delta_BN_t = " + str(self.delta_BN_t))
 
 				# Reset value of last ball nut positon
 				# Do we want real feedback?
-				self.last_BN_t = self.des_BN_t
+				#self.last_BN_t = self.des_BN_t
 
 				# Finds motor positions based on ball nut positions
-				self.delta_motor_f = self.delta_BN_f * self.distance_to_motor_pos
-				self.des_pos_f = self.delta_motor_f + self.last_pos_f
+				self.delta_motor_f = self.des_BN_f * self.distance_to_motor_pos
 
-				self.delta_motor_t = self.delta_BN_t * self.distance_to_motor_pos
-				self.des_pos_t = self.delta_motor_t + self.last_pos_t
+				self.des_pos_f = self.delta_motor_f #+ self.last_pos_f
+
+				self.delta_motor_t = self.des_BN_t * self.distance_to_motor_pos
+				print("delta_motor_t = " + str(self.delta_motor_t))
+				self.des_pos_t = self.delta_motor_t #+ self.last_pos_t
 
 				# motor_pos = PoseStamped()
 				# motor_pos.header.stamp = rospy.Time.now()
