@@ -55,7 +55,7 @@ class MotorPosition:
 
 		# Class variables
 		# Measured Values:
-		# All lengths are in inches and angles are in degrees
+		# All lengths are in inches and angles are in radians
 		self.constraint_H = 4.047
 		self.link_H = 7.047
 		self.mount_H = 2.294
@@ -126,7 +126,7 @@ class MotorPosition:
 
 
 	def femur_motor_callback(self, data):
-		#Femer angle is calculated from Inverse Kinematics code, zero is when the hip is tucked 
+		#Femur angle is calculated from Inverse Kinematics code, zero is when the hip is tucked 
 		self.theta_f = data.data 
 		print(self.theta_f)
 
@@ -145,7 +145,24 @@ class MotorPosition:
 				self.length_HBN = ((self.link_H * sin(self.theta_HLN)) / sin(self.theta_f)) 
 				# desired change in length (should be positive) of the ball screw
 				self.des_BN_f = self.ball_screw_H - (self.length_HBN - self.mount_H)
-				#To Do: add a check, make sure this is positive. Crash if negative.
+				print()
+				
+
+				# Check: Make sure the ball nut will not crash into either ball screw mount
+				if(self.des_BN_f < 0):
+					# If negative, ball nut will crash into lower ball screw mount...
+					# ...so reset value to minimum ball nut position.
+					print("Femur ball nut can't go that far! Resetting to minimum position...")
+					self.des_BN_f = 0
+				elif(self.des_BN_f > self.ball_screw_H):
+					# If larger than maximum ball screw length, ball nut will crash into upper ball screw mount...
+					# ...so reset value to maximum ball nut position
+					print("Tibia ball nut can't go that far! Resetting to maximum position...")
+					self.des_BN_f = self.ball_screw_H
+				else:
+					# If positive and less than max, do nothing. Everything should be fine!
+					pass
+
 
 				#
 				#self.delta_BN_f = self.des_BN_f - self.last_BN_f
@@ -154,6 +171,11 @@ class MotorPosition:
 				# Reset value of last ball nut positon
 				# Do we want real feedback?
 				#self.last_BN_f = self.des_BN_f
+
+				# Finds motor position based on ball nut position
+				self.delta_motor_f = self.des_BN_f * self.distance_to_motor_pos
+
+				self.des_pos_f = self.delta_motor_f #+ self.last_pos_f
 			else:
 				pass
 		else:
@@ -171,10 +193,10 @@ class MotorPosition:
 				self.theta_KLN = pi - self.theta_KNL - self.theta_t
 				print("theta_KLN = " + str(self.theta_KNL))
 
-				self.length_KBN = ((self.link_K * sin(self.theta_KLN)) / sin(self.theta_t)) - self.mount_K
+				self.length_KBN = (self.link_K * sin(self.theta_KLN)) / sin(self.theta_t)
 				print("length_KBN = " + str(self.length_KBN))
 				# self.des_BN_t = self.ball_screw_K - self.length_KBN
-				self.des_BN_t = self.length_KBN
+				self.des_BN_t = self.length_KBN - self.mount_K
 				#self.delta_BN_t = self.des_BN_t - self.last_BN_t
 				#print("delta_BN_t = " + str(self.delta_BN_t))
 
@@ -182,13 +204,26 @@ class MotorPosition:
 				# Do we want real feedback?
 				#self.last_BN_t = self.des_BN_t
 
-				# Finds motor positions based on ball nut positions
-				self.delta_motor_f = self.des_BN_f * self.distance_to_motor_pos
 
-				self.des_pos_f = self.delta_motor_f #+ self.last_pos_f
+				# Check: Make sure the ball nut will not crash into either ball screw mount
+				if(self.des_BN_t < 0):
+					# If negative, ball nut will crash into lower ball screw mount...
+					# ...so reset value to minimum ball nut position.
+					print("Tibia ball nut can't go that far! Resetting to minimum position...")
+					self.des_BN_t = 0
+				elif(self.des_BN_t > self.ball_screw_K):
+					# If larger than maximum ball screw length, ball nut will crash into upper ball screw mount...
+					# ...so reset value to maximum ball nut position
+					print("Tibia ball nut can't go that far! Resetting to maximum position...")
+					self.des_BN_t = self.ball_screw_K
+				else:
+					# Do nothing
+					pass
 
+				
+				# Finds motor position based on ball nut position
 				self.delta_motor_t = self.des_BN_t * self.distance_to_motor_pos
-				print("delta_motor_t = " + str(self.delta_motor_t))
+				# print("delta_motor_t = " + str(self.delta_motor_t))
 				self.des_pos_t = self.delta_motor_t #+ self.last_pos_t
 
 				# motor_pos = PoseStamped()
@@ -206,8 +241,8 @@ class MotorPosition:
 
 				# Reset value of last motor positons
 				# Do we want real feedback?
-				self.last_pos_f = self.des_pos_f
-				self.last_pos_t = self.des_pos_t
+				# self.last_pos_f = self.des_pos_f
+				# self.last_pos_t = self.des_pos_t
 			else:
 				pass
 		else:

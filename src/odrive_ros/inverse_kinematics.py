@@ -18,7 +18,7 @@ import tf2_ros
 
 # Imports message types and services from several libraries
 from std_msgs.msg import Float64  #,Float64Stamped, Int32Stamped
-from geometry_msgs.msg import TwistStamped, TransformStamped, Pose #PoseStamped
+from geometry_msgs.msg import TwistStamped, TransformStamped, Pose, PoseStamped
 import std_srvs.srv
 
 import time
@@ -35,7 +35,7 @@ class InverseKinematics:
 		# Publishers and Subscribers
 		# Subscribe to a foot position P: (xP, yP)
 		# self.sub = rospy.Subscriber("/footPosition",PoseStamped,pos_callback)
-		self.sub = rospy.Subscriber("/footPosition",Pose,self.pos_callback)
+		self.sub = rospy.Subscriber("/footPosition",PoseStamped,self.pos_callback)
 
 		#publish leg angles (two separate publishers)
 		#do I need to publish on a timer or only when I get a new value???
@@ -46,6 +46,8 @@ class InverseKinematics:
 
 
 		# Class Variables
+		# Note: Origin is at hip joint
+		# For right leg: positive x is to the right, y is down, and positive angle is clockwise
 
 		# Measured Values:
 		# All lengths are in inches and angles are in degrees (and converted to radians)
@@ -66,24 +68,25 @@ class InverseKinematics:
 		self.theta_max_C = 71.1922*(pi/180)
 
 		# To be calculated...
-		self.d = None
-		self.theta_P = None
-		self.theta_K = None
-		self.theta_HKP = None
+		self.d = None          # distance from hip to base of foot (or P)
+		self.theta_P = None    # angle from foot position to x-axis (positive angle, towards negative x-axis)
+		self.theta_K = None    # angle from foot (P) to knee pivot (between the lines HP and HK)
+		self.theta_HKP = None  # angle from femur (upper leg) to tibia (lower leg) (between lines HK and KP)
 		# Goal:
-		self.theta_f = None
-		self.theta_t = None
+		self.theta_f = None    # angle of femur, from femur ball screw to hip constraint
+		self.theta_t = None    # angle of tibia, from tibia ball screw to knee constraint
 
 
 
 	def pos_callback(self, data):
 		print("Received position!")
 		# Calculate distance from hip joint to foot (d)...
-		# ...and angle with respect to x-axis
-		self.d = sqrt(data.position.x**2 + data.position.y**2)
-		self.theta_P = pi -  arctan2(data.position.y, data.position.x)
+		# ...and angle with respect to (negative) x-axis
+		self.d = sqrt(data.pose.position.x**2 + data.pose.position.y**2)
+		self.theta_P = pi - arctan2(data.pose.position.y, data.pose.position.x)
 		print(self.theta_P)
 
+		# Check to see if the point and angle are within the allowed range of motion
 		if(self.d > self.R):
 			print("Too far, can't reach that!")
 		elif(self.d < self.r):
