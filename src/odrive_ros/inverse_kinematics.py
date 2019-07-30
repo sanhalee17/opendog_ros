@@ -34,8 +34,8 @@ class InverseKinematics:
 
 		# Publishers and Subscribers
 		# Subscribe to a foot position P: (xP, yP)
-		# self.sub = rospy.Subscriber("/footPosition",PoseStamped,pos_callback)
-		self.sub = rospy.Subscriber("/footPosition",PoseStamped,self.pos_callback)
+		# self.sub = rospy.Subscriber("/footPosition",Pose, self.pos_callback)
+		self.sub = rospy.Subscriber("/footPosition",PoseStamped, self.pos_callback)
 
 		#publish leg angles (two separate publishers)
 		#do I need to publish on a timer or only when I get a new value???
@@ -51,21 +51,21 @@ class InverseKinematics:
 
 		# Measured Values:
 		# All lengths are in inches and angles are in degrees (and converted to radians)
-		self.length_f = 14.125
-		self.length_t = 13.25
-		self.theta_K_shift = 16.6*(pi/180)
-		self.theta_HKP_shift = 1*(pi/180)
-		self.theta_H = 16.9*(pi/180)
-		self.theta_t_shift = 15.8*(pi/180)
+		self.length_f = 14.125   # distance from hip to knee pivots
+		self.length_t = 13.25    # distance from knee pivots to bottom of foot (P)
+		self.theta_K_shift = 16.6*(pi/180)   # offset angle, between hip-knee (HK) line and hip-femur ball nut (HN) line
+		self.theta_HKP_shift = 1*(pi/180)    # offset angle, between knee-foot (KP) line and knee-tibia link connection (KL) line
+		self.theta_H = 16.9*(pi/180)         # offset angle, between x-axis and hip constraint (HL)
+		self.theta_t_shift = 15.8*(pi/180)   # offset angle, between knee-tibia ball nut (KN) line and knee-hip (KH) line
 
 		# Range of Motion
-		# self.R = 27.6236  # empirical
-		self.R = 27.375   # sum of length_f and length_t
-		self.r = 17.9904
-		self.theta_min_E = 39.91*(pi/180)
-		self.theta_max_E = 119.29*(pi/180)
-		self.theta_min_C = 4.0002*(pi/180)
-		self.theta_max_C = 71.1922*(pi/180)
+		# self.R = 27.6236  # Farthest reach of foot (P) relative to hip, empirical
+		self.R = 27.375   	# Farthest reach of foot (P) relative to hip, sum of length_f and length_t
+		self.r = 17.9904    # Closest reach of foot (P) relative to hip, empirical
+		self.theta_min_E = 39.91*(pi/180)     # smallest angle from x-axis to hip-foot (HP) line when tibia is fully extended
+		self.theta_max_E = 119.29*(pi/180)    # largest angle from x-axis to HP when tibia is fully extended
+		self.theta_min_C = 4.0002*(pi/180)	  # smallest angle from x-axis to HP when tibia is fully contracted (folded)
+		self.theta_max_C = 71.1922*(pi/180)   # largest angle from x-axis to HP when tibia is fully contracted (folded)
 
 		# To be calculated...
 		self.d = None          # distance from hip to base of foot (or P)
@@ -100,7 +100,7 @@ class InverseKinematics:
 			self.theta_K = arccos((self.length_f**2 + self.d**2 - self.length_t**2)/(2 * self.d * self.length_f))
 			self.theta_HKP = arccos((self.length_t**2 + self.length_f**2 - self.d**2) / (2 * self.length_f * self.length_t))
 
-			# Calculate desired angles of femur and tibia (including offsets)...
+			# Calculate desired angle of femur (taking offsets into account)...
 			# ...and publish results
 			# self.theta_f = Float64Stamped()
 			# self.theta_f.header.stamp = rospy.Time.now()
@@ -109,6 +109,8 @@ class InverseKinematics:
 			print("theta_f: " + str(self.theta_f))
 			self.femur.publish(self.theta_f)
 
+			# Calculate desired angle of tibia (taking offsets into account)...
+			# ...and publish results
 			# self.theta_t = Float64Stamped()
 			# self.theta_t.header.stamp = rospy.Time.now()
 			self.theta_t = Float64()

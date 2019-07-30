@@ -56,13 +56,13 @@ class MotorPosition:
 		# Class variables
 		# Measured Values:
 		# All lengths are in inches and angles are in radians
-		self.constraint_H = 4.047
-		self.link_H = 7.047
-		self.mount_H = 2.294
+		self.constraint_H = 4.047  # distance from hip to link connection (along hip constraint)
+		self.link_H = 6.981 #7.047    	   # length of link (from link connection at constraint to ball nut)
+		self.mount_H = 2.294       # distance from hip to closest femur ball screw mount
 
-		self.constraint_K = 3.739
-		self.link_K = 7.047
-		self.mount_K = 2.177
+		self.constraint_K = 3.739  # distance from knee to link connection (along knee constraint)
+		self.link_K = 6.981 #7.047		   # length of link (from link connection at constraint to ball nut)
+		self.mount_K = 2.177	   # distance from knee to closest knee ball screw mount
 
 		# Full length of both ball screws is 180 mm (7.087 in)...
 		# ...but ball nuts can't really travel the full range.  
@@ -72,32 +72,33 @@ class MotorPosition:
 		self.ball_screw_K = 4.6063
 
 		# To be received from subscribed topics
-		self.theta_f = None
-		self.theta_t = None
+		# From inverse kinematics...
+		self.theta_f = None   # angle of femur, from femur ball screw to hip constraint
+		self.theta_t = None	  # angle of tibia, from tibia ball screw to knee constraint
 
 		self.init_motor_f = None
 		self.init_motor_t = None
 
 		# To be calculated...
-		self.theta_HLN = None
-		self.theta_HNL = None
-		self.theta_KLN = None
-		self.theta_KNL = None
+		self.theta_HLN = None   # angle between the constraint (HL) and linkage rod (LN)
+		self.theta_HNL = None	# angle between femur ball screw (HN) and link (NL)
+		self.theta_KLN = None	# angle between knee constraint (KL) and link (LN)
+		self.theta_KNL = None	# angle between tibia ball screw (KN) and link (NL)
 
-		self.length_HBN = None
-		self.length_KBN = None
+		self.length_HBN = None	# distance between hip and the hip ball nut
+		self.length_KBN = None	# distance between knee and the knee ball nut
 
-		self.des_BN_f = None
-		self.last_BN_f = 0
-		self.delta_BN_f = None
-		self.des_BN_t = None
-		self.last_BN_t = 0
-		self.delta_BN_t = None
+		self.des_BN_f = None	# desired location of femur ball nut with respect to lower ball screw mount
+		# self.last_BN_f = 0
+		# self.delta_BN_f = None
+		self.des_BN_t = None	# desired location of tibia ball nut with respect to lower ball screw mount
+		# self.last_BN_t = 0
+		# self.delta_BN_t = None
 
-		self.des_pos_f = None
+		self.des_pos_f = None	# desired femur motor position (in encoder counts)
 		self.last_pos_f = 0
 		self.delta_motor_f = None
-		self.des_pos_t = None
+		self.des_pos_t = None	# desired tibia motor position (in encoder counts)
 		self.last_pos_t = 0
 		self.delta_motor_t = None
 
@@ -126,26 +127,29 @@ class MotorPosition:
 
 
 	def femur_motor_callback(self, data):
-		#Femur angle is calculated from Inverse Kinematics code, zero is when the hip is tucked 
+		# Femur angle is calculated from Inverse Kinematics code, zero is when the hip is tucked 
 		self.theta_f = data.data 
 		print(self.theta_f)
 
-		#Motor will not run if no data has been fed. 
+		# Calculations will not continue if no init_motor_f does not have a value 
 		if(self.init_motor_f is not None):
-			#motor will not run if theta_f does not have a value
+			# Calculations will not continue if theta_f does not have a value
 			if(self.theta_f is not None):
 				print("Received theta_f!")
 				
-				#calculating angle between ball screw and link
+				# Calculates the angle between ball screw and link
 				self.theta_HNL = arcsin((self.constraint_H * sin(self.theta_f)) / self.link_H)
-				#angle between the constarint to linkage rod
+				# Calculates the angle between the constraint and linkage rod
 				self.theta_HLN = pi - self.theta_f - self.theta_HNL
 
 				#length from hip to ball nut
-				self.length_HBN = ((self.link_H * sin(self.theta_HLN)) / sin(self.theta_f)) 
+				self.length_HBN = ((self.link_H * sin(self.theta_HLN)) / sin(self.theta_f))
+				print("HBN = "+ str(self.length_HBN)) 
 				# desired change in length (should be positive) of the ball screw
-				self.des_BN_f = self.ball_screw_H - (self.length_HBN - self.mount_H)
-				print()
+				# Take the distance between the knee and the nearest ball screw mount into account...
+				# ...to find desired ball nut location, as well as the total length of the screw
+				self.des_BN_f = self.ball_screw_H + self.mount_H - (self.length_HBN )
+				print("BN_f = "+ str(self.des_BN_f))
 				
 
 				# Check: Make sure the ball nut will not crash into either ball screw mount
@@ -173,7 +177,7 @@ class MotorPosition:
 				#self.last_BN_f = self.des_BN_f
 
 				# Finds motor position based on ball nut position
-				self.delta_motor_f = self.des_BN_f * self.distance_to_motor_pos
+				self.delta_motor_f = - self.des_BN_f * self.distance_to_motor_pos
 
 				self.des_pos_f = self.delta_motor_f #+ self.last_pos_f
 			else:
@@ -182,21 +186,29 @@ class MotorPosition:
 			pass
 
 	def tibia_motor_callback(self, data):
+		# Calculations will not continue if no init_motor_f does not have a value 
 		if(self.init_motor_t is not None):
+			# Calculations will not continue if theta_f does not have a value
 			if(self.theta_f is not None):
 				print("Received theta_f and theta_t!")
 				self.theta_t = data.data
 				print("theta_t = " + str(self.theta_t))
 
+				# Calculate the angle between tibia ball screw (KN) and link (NL)
 				self.theta_KNL = arcsin((self.constraint_K * sin(self.theta_t)) / self.link_K)
 				print("theta_KNL = " + str(self.theta_KNL))
+				# Calculate the angle between knee constraint (KL) and link (LN)
 				self.theta_KLN = pi - self.theta_KNL - self.theta_t
 				print("theta_KLN = " + str(self.theta_KNL))
 
+				# Calculate the distance between the knee and the ball nut
 				self.length_KBN = (self.link_K * sin(self.theta_KLN)) / sin(self.theta_t)
 				print("length_KBN = " + str(self.length_KBN))
 				# self.des_BN_t = self.ball_screw_K - self.length_KBN
+				# Take the distance between the knee and the nearest ball screw mount into account...
+				# ...to find desired ball nut location
 				self.des_BN_t = self.length_KBN - self.mount_K
+				print("des_BN_t = " + str(self.des_BN_t))
 				#self.delta_BN_t = self.des_BN_t - self.last_BN_t
 				#print("delta_BN_t = " + str(self.delta_BN_t))
 
@@ -226,6 +238,7 @@ class MotorPosition:
 				# print("delta_motor_t = " + str(self.delta_motor_t))
 				self.des_pos_t = self.delta_motor_t #+ self.last_pos_t
 
+				# Publishes the motor positions as a Pose message
 				# motor_pos = PoseStamped()
 				# motor_pos.header.stamp = rospy.Time.now()
 				motor_pos = Pose()
