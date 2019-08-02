@@ -46,9 +46,19 @@ class MotorPosition:
 
 		self.constraint_H = 4.047  # distance from hip to link connection (along hip constraint)
 		self.link_H = 6.981 #7.047    	   # length of link (from link connection at constraint to ball nut)
+		self.mount_H = 2.294       # distance from hip to closest femur ball screw mount (inside face)
 
 		self.constraint_K = 3.739  # distance from knee to link connection (along knee constraint)
 		self.link_K = 6.981 #7.047		   # length of link (from link connection at constraint to ball nut)
+		self.mount_K = 2.177	   # distance from knee to closest knee ball screw mount (inside face)
+
+		# Full length of both ball screws is 180 mm (7.087 in)...
+		# ...but ball nuts can't really travel the full range.  
+		# Otherwise, things will crash into each other (eg: the links will run into the encoder mounts).
+		# These effective lengths were measured empirically, from the mount referenced above...
+		# ...to the farthest distance from the mount.
+		self.ball_screw_H = 5.875 #3.75#5
+		self.ball_screw_K = 5.5625 #4.462 #4.6063
 
 		# To be received from subscribed topics
 		self.theta_f = 0  # angle of femur, from femur ball screw to hip constraint
@@ -219,8 +229,9 @@ class MotorPosition:
 		femur.header.stamp = rospy.Time.now();
 		# femur.ns = "my_namespace";
 		# femur.id = 0;
-		femur.type = femur.CUBE;
+		femur.type = femur.CUBE;      # set shape of marker
 		femur.action = femur.MODIFY;
+		# Indicate the object's position and orientation relative to femur frame's origin
 		femur.pose.position.x = 6.5;
 		femur.pose.position.y = -2.5;
 		femur.pose.position.z = 0;
@@ -228,9 +239,11 @@ class MotorPosition:
 		femur.pose.orientation.y = 0.0;
 		femur.pose.orientation.z = 0.0;
 		femur.pose.orientation.w = 1.0;
+		# Indicate size of marker
 		femur.scale.x = 16;
 		femur.scale.y = 0.875;
 		femur.scale.z = 2.5;
+		# Set Color (r,g,b)
 		femur.color.a = 1.0; # Don't forget to set the alpha!
 		femur.color.r = 0.0;
 		femur.color.g = 1.0;
@@ -244,6 +257,28 @@ class MotorPosition:
 		self.theta_HNL = arcsin((self.constraint_H * sin(self.theta_f)) / self.link_H)
 		# Angle between the hip constraint and linkage rod
 		self.theta_HLN = pi - self.theta_f - self.theta_HNL
+
+		# Calculate the distance between the hip and the ball nut
+		self.length_HBN = ((self.link_H * sin(self.theta_HLN)) / sin(self.theta_f)) 
+
+		# Check: Make sure the ball nut will not crash into either ball screw mount
+		if(self.length_HBN < 4.375):
+			# If less than minimum spacing between ball nut and H, 
+			# ball nut will crash into upper ball screw mount...
+			# ...so reset value to maximum ball nut position (relative to lower mount.
+			print("Femur ball nut can't go that far! Resetting to maximum position...")
+			self.length_HBN = 4.375
+			self.theta_HLN = arcsin((self.length_HBN * sin(self.theta_f)) / self.link_H)
+		elif(self.length_HBN > (self.ball_screw_H + self.mount_H)):
+			# If less than maximum spacing between ball nut and H, 
+			# ball nut will crash into lower ball screw mount...
+			# ...so reset value to minimum ball nut position (relative to lower mount).
+			print("Femur ball nut can't go that far! Resetting to minimum position...")
+			self.length_HBN = self.ball_screw_H + self.mount_H
+			self.theta_HLN = arcsin((self.length_HBN * sin(self.theta_f)) / self.link_H)
+		else:
+			# If in between these two extremes, do nothing.  Everything should be fine!
+			pass
 
 		# Create a new set of coordinates for the femur link frame, relative to the world frame.
  		# This is centered on the link connection and offset in z from the body.
@@ -277,8 +312,6 @@ class MotorPosition:
 		# femur_link.mesh_resource = "package://pr2_description/meshes/base_v0/base.dae";
 		self.femur_link_pub.publish( femur_link );
 
-		# Calculate the distance between the hip and the ball nut
-		self.length_HBN = ((self.link_H * sin(self.theta_HLN)) / sin(self.theta_f)) 
 
 		# Create a new set of coordinates for the femur ball nut frame, relative to the femur frame.
  		# This is centered on the ball nut (where it connects to link).
@@ -351,6 +384,28 @@ class MotorPosition:
 		# Calculate the angle between knee constraint (KL) and link (LN)
 		self.theta_KLN = pi - self.theta_KNL - self.theta_t
 
+		# Calculate the distance between the knee and the ball nut
+		self.length_KBN = (self.link_K * sin(self.theta_KLN)) / sin(self.theta_t)
+
+		# Check: Make sure the ball nut will not crash into either ball screw mount
+		if(self.length_KBN < 1.375):
+			# If less than minimum spacing between ball nut and K, 
+			# ball nut will crash into lower ball screw mount...
+			# ...so reset value to minimum ball nut position (relative to lower mount).
+			print("Tibia ball nut can't go that far! Resetting to minimum position...")
+			self.length_KBN = 1.375
+			self.theta_KLN = arcsin((self.length_KBN * sin(self.theta_t)) / self.link_K)
+		elif(self.length_KBN > (self.ball_screw_K + self.mount_K)):
+			# If less than maximum spacing between ball nut and K, 
+			# ball nut will crash into upper ball screw mount...
+			# ...so reset value to maximum ball nut position (relative to lower mount).
+			print("Femur ball nut can't go that far! Resetting to maximum position...")
+			self.length_KBN = self.ball_screw_K + self.mount_K
+			self.theta_KLN = arcsin((self.length_KBN * sin(self.theta_t)) / self.link_K)
+		else:
+			# If in between these two extremes, do nothing.  Everything should be fine!
+			pass
+
 		# Create a new set of coordinates for the tibia link frame, relative to the tibia frame.
 		# This frame is centered on the connection between the link and tibia.
 		self.br.sendTransform((3.75, 0.644, -1.5),
@@ -382,9 +437,6 @@ class MotorPosition:
 		#only if using a MESH_RESOURCE tibia_link type:
 		# tibia_link.mesh_resource = "package://pr2_description/meshes/base_v0/base.dae";
 		self.tibia_link_pub.publish( tibia_link );
-
-		# Calculate the distance between the knee and the ball nut
-		self.length_KBN = (self.link_K * sin(self.theta_KLN)) / sin(self.theta_t)
 
 		# Create a new set of coordinates for the tibia ball nut frame, relative to the femur frame.
  		# This is centered on the ball nut (where it connects to link).

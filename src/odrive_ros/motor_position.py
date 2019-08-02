@@ -58,26 +58,27 @@ class MotorPosition:
 		# All lengths are in inches and angles are in radians
 		self.constraint_H = 4.047  # distance from hip to link connection (along hip constraint)
 		self.link_H = 6.981 #7.047    	   # length of link (from link connection at constraint to ball nut)
-		self.mount_H = 2.294       # distance from hip to closest femur ball screw mount
+		self.mount_H = 2.294       # distance from hip to closest femur ball screw mount (inside face)
 
 		self.constraint_K = 3.739  # distance from knee to link connection (along knee constraint)
 		self.link_K = 6.981 #7.047		   # length of link (from link connection at constraint to ball nut)
-		self.mount_K = 2.177	   # distance from knee to closest knee ball screw mount
+		self.mount_K = 2.177	   # distance from knee to closest knee ball screw mount (inside face)
 
 		# Full length of both ball screws is 180 mm (7.087 in)...
 		# ...but ball nuts can't really travel the full range.  
 		# Otherwise, things will crash into each other (eg: the links will run into the encoder mounts).
-		# These effective lengths were measured empirically.
-		self.ball_screw_H = 5
-		self.ball_screw_K = 4.6063
+		# These effective lengths were measured empirically, from the mount referenced above...
+		# ...to the farthest distance from the mount.
+		self.ball_screw_H = 5.875 #3.75#5
+		self.ball_screw_K = 5.5625 #4.462 #4.6063
 
 		# To be received from subscribed topics
 		# From inverse kinematics...
 		self.theta_f = None   # angle of femur, from femur ball screw to hip constraint
 		self.theta_t = None	  # angle of tibia, from tibia ball screw to knee constraint
 
-		self.init_motor_f = None
-		self.init_motor_t = None
+		self.init_motor_f = 0
+		self.init_motor_t = 0
 
 		# To be calculated...
 		self.theta_HLN = None   # angle between the constraint (HL) and linkage rod (LN)
@@ -96,10 +97,10 @@ class MotorPosition:
 		# self.delta_BN_t = None
 
 		self.des_pos_f = None	# desired femur motor position (in encoder counts)
-		self.last_pos_f = 0
+		# self.last_pos_f = 0
 		self.delta_motor_f = None
 		self.des_pos_t = None	# desired tibia motor position (in encoder counts)
-		self.last_pos_t = 0
+		# self.last_pos_t = 0
 		self.delta_motor_t = None
 
 
@@ -109,20 +110,20 @@ class MotorPosition:
 		self.rev_to_count = 8192
 		self.deg_to_count = 8192 / 360   # 1 revolution = 360 degrees = 8192 counts
 
-	def init_f_callback(self, data):
-		if(self.init_motor_f is None):
-			self.init_motor_f = data.data
-			self.last_pos_f = self.init_motor_f
-		else:
-			pass
+	# def init_f_callback(self, data):
+	# 	if(self.init_motor_f is None):
+	# 		self.init_motor_f = data.data
+	# 		self.last_pos_f = self.init_motor_f
+	# 	else:
+	# 		pass
 
 
-	def init_t_callback(self, data):
-		if(self.init_motor_t is None):
-			self.init_motor_t = data.data
-			self.last_pos_t = self.init_motor_t
-		else:
-			pass
+	# def init_t_callback(self, data):
+	# 	if(self.init_motor_t is None):
+	# 		self.init_motor_t = data.data
+	# 		self.last_pos_t = self.init_motor_t
+	# 	else:
+	# 		pass
 
 
 
@@ -145,6 +146,25 @@ class MotorPosition:
 				#length from hip to ball nut
 				self.length_HBN = ((self.link_H * sin(self.theta_HLN)) / sin(self.theta_f))
 				print("HBN = "+ str(self.length_HBN)) 
+
+				# Check: Make sure the ball nut will not crash into either ball screw mount
+				if(self.length_HBN < 4.375):
+					# If less than minimum spacing between ball nut and H, 
+					# ball nut will crash into upper ball screw mount...
+					# ...so reset value to maximum ball nut position (relative to lower mount.
+					print("Femur ball nut can't go that far! Resetting to maximum position...")
+					self.length_HBN = 4.375
+				elif(self.length_HBN > (self.ball_screw_H + self.mount_H)):
+					# If less than maximum spacing between ball nut and H, 
+					# ball nut will crash into lower ball screw mount...
+					# ...so reset value to minimum ball nut position (relative to lower mount).
+					print("Femur ball nut can't go that far! Resetting to minimum position...")
+					self.length_HBN = self.ball_screw_H + self.mount_H
+				else:
+					# If in between these two extremes, do nothing.  Everything should be fine!
+					pass
+
+
 				# desired change in length (should be positive) of the ball screw
 				# Take the distance between the knee and the nearest ball screw mount into account...
 				# ...to find desired ball nut location, as well as the total length of the screw
@@ -152,20 +172,20 @@ class MotorPosition:
 				print("BN_f = "+ str(self.des_BN_f))
 				
 
-				# Check: Make sure the ball nut will not crash into either ball screw mount
-				if(self.des_BN_f < 0):
-					# If negative, ball nut will crash into lower ball screw mount...
-					# ...so reset value to minimum ball nut position.
-					print("Femur ball nut can't go that far! Resetting to minimum position...")
-					self.des_BN_f = 0
-				elif(self.des_BN_f > self.ball_screw_H):
-					# If larger than maximum ball screw length, ball nut will crash into upper ball screw mount...
-					# ...so reset value to maximum ball nut position
-					print("Tibia ball nut can't go that far! Resetting to maximum position...")
-					self.des_BN_f = self.ball_screw_H
-				else:
-					# If positive and less than max, do nothing. Everything should be fine!
-					pass
+				# # Check: Make sure the ball nut will not crash into either ball screw mount
+				# if(self.des_BN_f < 0):
+				# 	# If negative, ball nut will crash into lower ball screw mount...
+				# 	# ...so reset value to minimum ball nut position.
+				# 	print("Femur ball nut can't go that far! Resetting to minimum position...")
+				# 	self.des_BN_f = 0
+				# elif(self.des_BN_f > self.ball_screw_H):
+				# 	# If larger than maximum ball screw length, ball nut will crash into upper ball screw mount...
+				# 	# ...so reset value to maximum ball nut position
+				# 	print("Femur ball nut can't go that far! Resetting to maximum position...")
+				# 	self.des_BN_f = self.ball_screw_H
+				# else:
+				# 	# If positive and less than max, do nothing. Everything should be fine!
+				# 	pass
 
 
 				#
@@ -204,6 +224,25 @@ class MotorPosition:
 				# Calculate the distance between the knee and the ball nut
 				self.length_KBN = (self.link_K * sin(self.theta_KLN)) / sin(self.theta_t)
 				print("length_KBN = " + str(self.length_KBN))
+				
+
+				# Check: Make sure the ball nut will not crash into either ball screw mount
+				if(self.length_KBN < 1.375):
+					# If less than minimum spacing between ball nut and K, 
+					# ball nut will crash into lower ball screw mount...
+					# ...so reset value to minimum ball nut position (relative to lower mount).
+					print("Tibia ball nut can't go that far! Resetting to minimum position...")
+					self.length_KBN = 1.375
+				elif(self.length_KBN > (self.ball_screw_K + self.mount_K)):
+					# If less than maximum spacing between ball nut and K, 
+					# ball nut will crash into upper ball screw mount...
+					# ...so reset value to maximum ball nut position (relative to lower mount).
+					print("Femur ball nut can't go that far! Resetting to maximum position...")
+					self.length_KBN = self.ball_screw_K + self.mount_K
+				else:
+					# If in between these two extremes, do nothing.  Everything should be fine!
+					pass
+
 				# self.des_BN_t = self.ball_screw_K - self.length_KBN
 				# Take the distance between the knee and the nearest ball screw mount into account...
 				# ...to find desired ball nut location
@@ -217,20 +256,20 @@ class MotorPosition:
 				#self.last_BN_t = self.des_BN_t
 
 
-				# Check: Make sure the ball nut will not crash into either ball screw mount
-				if(self.des_BN_t < 0):
-					# If negative, ball nut will crash into lower ball screw mount...
-					# ...so reset value to minimum ball nut position.
-					print("Tibia ball nut can't go that far! Resetting to minimum position...")
-					self.des_BN_t = 0
-				elif(self.des_BN_t > self.ball_screw_K):
-					# If larger than maximum ball screw length, ball nut will crash into upper ball screw mount...
-					# ...so reset value to maximum ball nut position
-					print("Tibia ball nut can't go that far! Resetting to maximum position...")
-					self.des_BN_t = self.ball_screw_K
-				else:
-					# Do nothing
-					pass
+				# # Check: Make sure the ball nut will not crash into either ball screw mount
+				# if(self.des_BN_t < 0):
+				# 	# If negative, ball nut will crash into lower ball screw mount...
+				# 	# ...so reset value to minimum ball nut position.
+				# 	print("Tibia ball nut can't go that far! Resetting to minimum position...")
+				# 	self.des_BN_t = 0
+				# elif(self.des_BN_t > self.ball_screw_K):
+				# 	# If larger than maximum ball screw length, ball nut will crash into upper ball screw mount...
+				# 	# ...so reset value to maximum ball nut position
+				# 	print("Tibia ball nut can't go that far! Resetting to maximum position...")
+				# 	self.des_BN_t = self.ball_screw_K
+				# else:
+				# 	# Do nothing
+				# 	pass
 
 				
 				# Finds motor position based on ball nut position
