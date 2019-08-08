@@ -39,8 +39,8 @@ class MotorPosition:
 		self.sub_T = rospy.Subscriber("/theta_t", Float64, self.tibia_motor_callback)
 
 		# actual position (counts) from /encoder_right topic (encoder position) published by odrive_node.py
-		self.sub_init_t = rospy.Subscriber("odrive/raw_odom/encoder_right", Int32, self.init_t_callback)
-		self.sub_init_f = rospy.Subscriber("odrive/raw_odom/encoder_left", Int32, self.init_f_callback)
+		# self.sub_init_t = rospy.Subscriber("odrive/raw_odom/encoder_right", Int32, self.init_t_callback)
+		# self.sub_init_f = rospy.Subscriber("odrive/raw_odom/encoder_left", Int32, self.init_f_callback)
 
 
 		#publish motor positions
@@ -59,10 +59,12 @@ class MotorPosition:
 		self.constraint_H = 4.047  # distance from hip to link connection (along hip constraint)
 		self.link_H = 6.981 #7.047    	   # length of link (from link connection at constraint to ball nut)
 		self.mount_H = 2.294       # distance from hip to closest femur ball screw mount (inside face)
+		#TODO: update mount_H and any areas affected
 
 		self.constraint_K = 3.739  # distance from knee to link connection (along knee constraint)
 		self.link_K = 6.981 #7.047		   # length of link (from link connection at constraint to ball nut)
-		self.mount_K = 2.177	   # distance from knee to closest knee ball screw mount (inside face)
+		self.mount_K = 3.5 #2.177	   # distance from knee to closest knee ball screw mount (inside face)
+		#TODO: update name of mount_K and any areas affected
 
 		# Full length of both ball screws is 180 mm (7.087 in)...
 		# ...but ball nuts can't really travel the full range.  
@@ -153,7 +155,7 @@ class MotorPosition:
 					# ball nut will crash into upper ball screw mount...
 					# ...so reset value to maximum ball nut position (relative to lower mount.
 					print("Femur ball nut can't go that far! Resetting to maximum position...")
-					self.length_HBN = 4.375
+					self.length_HBN = 4.375   #TODO: don't make this hard-coded
 				elif(self.length_HBN > (self.ball_screw_H + self.mount_H)):
 					# If less than maximum spacing between ball nut and H, 
 					# ball nut will crash into lower ball screw mount...
@@ -219,7 +221,10 @@ class MotorPosition:
 				print("theta_KNL = " + str(self.theta_KNL))
 				# Calculate the angle between knee constraint (KL) and link (LN)
 				self.theta_KLN = pi - self.theta_KNL - self.theta_t
-				print("theta_KLN = " + str(self.theta_KNL))
+
+				# Adding offset angles (original is above)
+				# self.theta_KLN = pi - self.theta_KNL - self.theta_t - self.theta_t_shift
+				# print("theta_KLN = " + str(self.theta_KNL))
 
 				# Calculate the distance between the knee and the ball nut
 				self.length_KBN = (self.link_K * sin(self.theta_KLN)) / sin(self.theta_t)
@@ -227,12 +232,12 @@ class MotorPosition:
 				
 
 				# Check: Make sure the ball nut will not crash into either ball screw mount
-				if(self.length_KBN < 1.375):
+				if(self.length_KBN < self.mount_K):
 					# If less than minimum spacing between ball nut and K, 
 					# ball nut will crash into lower ball screw mount...
 					# ...so reset value to minimum ball nut position (relative to lower mount).
 					print("Tibia ball nut can't go that far! Resetting to minimum position...")
-					self.length_KBN = 1.375
+					self.length_KBN = self.mount_K
 				elif(self.length_KBN > (self.ball_screw_K + self.mount_K)):
 					# If less than maximum spacing between ball nut and K, 
 					# ball nut will crash into upper ball screw mount...

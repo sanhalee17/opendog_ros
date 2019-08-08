@@ -36,10 +36,16 @@ class MotorPosition:
 
 		# Measured Values:
 		# All lengths are in inches and angles are in radians
-		self.theta_K_shift = 16.6*(pi/180)	# offset angle, between hip-knee (HK) line and hip-femur ball nut (HN) line
-		self.theta_HKP_shift = 1*(pi/180)	# offset angle, between knee-foot (KP) line and knee-tibia link connection (KL) line
-		self.theta_H = 16.9*(pi/180)		# offset angle, between x-axis and hip constraint (HL)
-		self.theta_t_shift = 15.8*(pi/180)	# offset angle, between knee-tibia ball nut (KN) line and knee-hip (KH) line
+		# self.theta_K_shift = 16.6*(pi/180)	# offset angle, between hip-knee (HK) line and hip-femur ball nut (HN) line
+		# self.theta_HKP_shift = 1*(pi/180)	# offset angle, between knee-foot (KP) line and knee-tibia link connection (KL) line
+		# self.theta_H = 10.3*(pi/180)		# offset angle, between x-axis and hip constraint (HL)
+		# self.theta_t_shift = 15.8*(pi/180)	# offset angle, between knee-tibia ball nut (KN) line and knee-hip (KH) line
+
+		self.theta_K_shift = 13*(pi/180)   #16.6# offset angle, between hip-knee (HK) line and hip-femur ball nut (HN) line
+		self.theta_HKP_shift = -1*(pi/180)    #8-1.5#1# offset angle, between knee-foot (KP) line and knee-tibia link connection (KL) line
+		self.theta_H = 10.3*(pi/180)         #10.3 # 16.9 # offset angle, between x-axis and hip constraint (HL)
+		self.theta_t_shift = 14*(pi/180)   #21.3-7.3 #15.8# offset angle, between knee-tibia ball nut (KN) line and knee-hip (KH) line
+
 
 		self.length_f = 14.125   # distance from hip to knee pivots
 		self.length_t = 13.25    # distance from knee pivots to bottom of foot (P)
@@ -47,10 +53,12 @@ class MotorPosition:
 		self.constraint_H = 4.047  # distance from hip to link connection (along hip constraint)
 		self.link_H = 6.981 #7.047    	   # length of link (from link connection at constraint to ball nut)
 		self.mount_H = 2.294       # distance from hip to closest femur ball screw mount (inside face)
+		#TODO: update mount_H and any areas affected
 
 		self.constraint_K = 3.739  # distance from knee to link connection (along knee constraint)
 		self.link_K = 6.981 #7.047		   # length of link (from link connection at constraint to ball nut)
 		self.mount_K = 2.177	   # distance from knee to closest knee ball screw mount (inside face)
+		#TODO: update mount_K and any areas affected
 
 		# Full length of both ball screws is 180 mm (7.087 in)...
 		# ...but ball nuts can't really travel the full range.  
@@ -150,7 +158,7 @@ class MotorPosition:
 		link_connect.type = 3;
 		link_connect.action = link_connect.MODIFY;
 		link_connect.pose.position.x = -3.875;
-		link_connect.pose.position.y = -1;
+		link_connect.pose.position.y = -1.5;
 		link_connect.pose.position.z = -4;
 		link_connect.pose.orientation.x = 0.0;
 		link_connect.pose.orientation.y = 0.0;
@@ -267,7 +275,7 @@ class MotorPosition:
 			# ball nut will crash into upper ball screw mount...
 			# ...so reset value to maximum ball nut position (relative to lower mount.
 			print("Femur ball nut can't go that far! Resetting to maximum position...")
-			self.length_HBN = 4.375
+			self.length_HBN = 4.375   #TODO: don't make this hard-coded
 			self.theta_HLN = arcsin((self.length_HBN * sin(self.theta_f)) / self.link_H)
 		elif(self.length_HBN > (self.ball_screw_H + self.mount_H)):
 			# If less than maximum spacing between ball nut and H, 
@@ -388,18 +396,18 @@ class MotorPosition:
 		self.length_KBN = (self.link_K * sin(self.theta_KLN)) / sin(self.theta_t)
 
 		# Check: Make sure the ball nut will not crash into either ball screw mount
-		if(self.length_KBN < 1.375):
+		if(self.length_KBN < 3.25):
 			# If less than minimum spacing between ball nut and K, 
 			# ball nut will crash into lower ball screw mount...
 			# ...so reset value to minimum ball nut position (relative to lower mount).
 			print("Tibia ball nut can't go that far! Resetting to minimum position...")
-			self.length_KBN = 1.375
+			self.length_KBN = 3.25   #TODO: don't make this hard-coded
 			self.theta_KLN = arcsin((self.length_KBN * sin(self.theta_t)) / self.link_K)
 		elif(self.length_KBN > (self.ball_screw_K + self.mount_K)):
 			# If less than maximum spacing between ball nut and K, 
 			# ball nut will crash into upper ball screw mount...
 			# ...so reset value to maximum ball nut position (relative to lower mount).
-			print("Femur ball nut can't go that far! Resetting to maximum position...")
+			print("Tibia ball nut can't go that far! Resetting to maximum position...")
 			self.length_KBN = self.ball_screw_K + self.mount_K
 			self.theta_KLN = arcsin((self.length_KBN * sin(self.theta_t)) / self.link_K)
 		else:

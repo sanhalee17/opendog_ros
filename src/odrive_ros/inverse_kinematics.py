@@ -53,10 +53,10 @@ class InverseKinematics:
 		# All lengths are in inches and angles are in degrees (and converted to radians)
 		self.length_f = 14.125   # distance from hip to knee pivots
 		self.length_t = 13.25    # distance from knee pivots to bottom of foot (P)
-		self.theta_K_shift = 16.6*(pi/180)   # offset angle, between hip-knee (HK) line and hip-femur ball nut (HN) line
-		self.theta_HKP_shift = 1*(pi/180)    # offset angle, between knee-foot (KP) line and knee-tibia link connection (KL) line
-		self.theta_H = 16.9*(pi/180)         # offset angle, between x-axis and hip constraint (HL)
-		self.theta_t_shift = 15.8*(pi/180)   # offset angle, between knee-tibia ball nut (KN) line and knee-hip (KH) line
+		self.theta_K_shift = 13*(pi/180)   #16.6# offset angle, between hip-knee (HK) line and hip-femur ball nut (HN) line
+		self.theta_HKP_shift = -1*(pi/180)    #8-1.5#1# offset angle, between knee-foot (KP) line and knee-tibia link connection (KL) line
+		self.theta_H = 10.3*(pi/180)         #10.3 #15.4 # 16.9 # offset angle, between x-axis and hip constraint (HL)
+		self.theta_t_shift = 14*(pi/180)   #21.3-7.3 #15.8# offset angle, between knee-tibia ball nut (KN) line and knee-hip (KH) line
 
 		# Range of Motion
 		# self.R = 27.6236  # Farthest reach of foot (P) relative to hip, empirical
@@ -91,10 +91,10 @@ class InverseKinematics:
 			print("Too far, can't reach that!")
 		elif(self.d < self.r):
 			print("Too close, can't reach that either")
-		elif(self.theta_P > self.theta_max_E):
-			print("Angle is too large")
-		elif(self.theta_P < self.theta_min_C):
-			print("Angle is too small")
+		# elif(self.theta_P > self.theta_max_E):
+		# 	print("Angle is too large")
+		# elif(self.theta_P < self.theta_min_C):
+		# 	print("Angle is too small")
 		else:
 			# Compute angles foot-hip-knee (theta_K) and hip-knee-foot (theta_HKP)
 			self.theta_K = arccos((self.length_f**2 + self.d**2 - self.length_t**2)/(2 * self.d * self.length_f))
@@ -117,6 +117,8 @@ class InverseKinematics:
 			self.theta_t = self.theta_HKP - self.theta_HKP_shift - self.theta_t_shift
 			print("theta_t: " + str(self.theta_t))
 			self.tibia.publish(self.theta_t)
+
+
 
 
 
