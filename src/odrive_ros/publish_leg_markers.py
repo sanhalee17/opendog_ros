@@ -68,6 +68,14 @@ class MotorPosition:
 		self.ball_screw_H = 5.875 #3.75#5
 		self.ball_screw_K = 5.5625 #4.462 #4.6063
 
+		# Ball nut limits: minimum is the distance from the joint for the respective leg segment...
+		# ...to the zero position.
+		# Maximum is the distance from the same joint to the farthest distance the ball nut can travel.
+		self.min_H = 4.375
+		self.max_H = self.ball_screw_H + self.mount_H
+		self.min_K = 3.5
+		self.max_K = self.ball_screw_K + self.mount_K
+
 		# To be received from subscribed topics
 		self.theta_f = 0  # angle of femur, from femur ball screw to hip constraint
 		self.theta_t = 0  # angle of tibia, from tibia ball screw to hip constraint
@@ -270,12 +278,12 @@ class MotorPosition:
 		self.length_HBN = ((self.link_H * sin(self.theta_HLN)) / sin(self.theta_f)) 
 
 		# Check: Make sure the ball nut will not crash into either ball screw mount
-		if(self.length_HBN < 4.375):
+		if(self.length_HBN < self.min_H):
 			# If less than minimum spacing between ball nut and H, 
 			# ball nut will crash into upper ball screw mount...
-			# ...so reset value to maximum ball nut position (relative to lower mount.
+			# ...so reset value to maximum ball nut position (relative to lower mount.)
 			print("Femur ball nut can't go that far! Resetting to maximum position...")
-			self.length_HBN = 4.375   #TODO: don't make this hard-coded
+			self.length_HBN = self.min_H
 			self.theta_HLN = arcsin((self.length_HBN * sin(self.theta_f)) / self.link_H)
 		elif(self.length_HBN > (self.ball_screw_H + self.mount_H)):
 			# If less than maximum spacing between ball nut and H, 
@@ -396,12 +404,12 @@ class MotorPosition:
 		self.length_KBN = (self.link_K * sin(self.theta_KLN)) / sin(self.theta_t)
 
 		# Check: Make sure the ball nut will not crash into either ball screw mount
-		if(self.length_KBN < 3.25):
+		if(self.length_KBN < self.min_K):
 			# If less than minimum spacing between ball nut and K, 
 			# ball nut will crash into lower ball screw mount...
 			# ...so reset value to minimum ball nut position (relative to lower mount).
 			print("Tibia ball nut can't go that far! Resetting to minimum position...")
-			self.length_KBN = 3.25   #TODO: don't make this hard-coded
+			self.length_KBN = self.min_K
 			self.theta_KLN = arcsin((self.length_KBN * sin(self.theta_t)) / self.link_K)
 		elif(self.length_KBN > (self.ball_screw_K + self.mount_K)):
 			# If less than maximum spacing between ball nut and K, 

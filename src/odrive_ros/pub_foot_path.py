@@ -23,7 +23,7 @@ class FootPath:
 		self.Y = array([25,22,22,25,25])
 
 		#linear speed (constant)
-		self.U = 12	#inches per second
+		self.U = 6	#inches per second
 
 		# Initialize "current" values
 		self.Snow,self.xnow,self.ynow,self.tnow = 0,0,0,0
