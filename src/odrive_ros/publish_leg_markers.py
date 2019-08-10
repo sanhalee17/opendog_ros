@@ -53,12 +53,10 @@ class MotorPosition:
 		self.constraint_H = 4.047  # distance from hip to link connection (along hip constraint)
 		self.link_H = 6.981 #7.047    	   # length of link (from link connection at constraint to ball nut)
 		self.mount_H = 2.294       # distance from hip to closest femur ball screw mount (inside face)
-		#TODO: update mount_H and any areas affected
 
 		self.constraint_K = 3.739  # distance from knee to link connection (along knee constraint)
 		self.link_K = 6.981 #7.047		   # length of link (from link connection at constraint to ball nut)
 		self.mount_K = 2.177	   # distance from knee to closest knee ball screw mount (inside face)
-		#TODO: update mount_K and any areas affected
 
 		# Full length of both ball screws is 180 mm (7.087 in)...
 		# ...but ball nuts can't really travel the full range.  
